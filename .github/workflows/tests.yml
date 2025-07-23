@@ -1,0 +1,33 @@
+# Nome do Workflow
+name: Tests
+
+# Gatilhos: roda em cada push e em cada pull request para a branch main
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Tarefas a serem executadas
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Passos 1-4 são idênticos ao workflow de linting para preparar o ambiente
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install dependencies
+        run: poetry install
+
+      # 5. Executa a suíte de testes com Pytest
+      - name: Run Pytest
+        run: poetry run pytest
