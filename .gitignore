@@ -1,0 +1,56 @@
+# --- core python ---
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+
+# wheels / builds
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# venvs
+.venv*/
+venv*/
+ENV*/
+
+# test & type caches
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+.coverage*
+htmlcov/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# notebooks (opcional)
+# notebooks/*.ipynb
+
+# data (keep instances, ignore heavy outputs)
+data/results_raw/
+data/results_parquet/
+!data/instances/
+
+# logs
+*.log
+logs/
+
+# env files
+.env*
+!.env.example
+
+# docker artefacts
+docker/*.tar
+*.dockerfile~
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# tox / pep582
+.tox/
+__pypackages__/

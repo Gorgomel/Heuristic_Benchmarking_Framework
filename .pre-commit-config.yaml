@@ -1,0 +1,26 @@
+# Arquivo de configuração para o pre-commit
+# Define os hooks que rodam automaticamente antes de cada commit
+
+repos:
+  # Hooks padrão para manutenção de arquivos
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # Hook para formatação de código automática com Black
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+
+  # Hook para linting e formatação com Ruff (extremamente rápido)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix] # Tenta corrigir erros automaticamente
+      - id: ruff-format
