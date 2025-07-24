@@ -4,9 +4,9 @@ name: Tests
 # Gatilhos: roda em cada push e em cada pull request para a branch main
 on:
   push:
-    branches: [ main ]
+    branches: [ dev ] # Roda em cada push para a branch dev
   pull_request:
-    branches: [ main ]
+    branches: [ main ] # Roda quando um PR é aberto/atualizado para a main
 
 # Tarefas a serem executadas
 jobs:
