@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MPP Instance Schema",
+  "type": "object",
+  "properties": {
+    "epsilon": { "type": "number", "exclusiveMinimum": 0 },
+    "nodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "minimum": 0 },
+          "velocity": { "type": "number", "minimum": 8.0, "maximum": 16.0 },
+          "pos": {
+            "type": "array",
+            "items": { "type": "number", "minimum": 0, "maximum": 1000 },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "required": ["id", "velocity", "pos"]
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "integer" },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    }
+  },
+  "required": ["epsilon", "nodes", "edges"]
+}
