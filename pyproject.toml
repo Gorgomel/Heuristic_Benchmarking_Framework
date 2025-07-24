@@ -7,8 +7,9 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = "~3.11"
+requires-python = ">=3.11"
 dependencies = [
+    "fabric (>=3.2.2,<4.0.0)"
 ]
 
 
