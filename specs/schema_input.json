@@ -1,40 +1,50 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MPP Instance Schema v3.1.2",
+  "title": "MPP Instance Schema v1.1",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
-    "epsilon": { "type": "number", "exclusiveMinimum": 0 },
+    "schema_version": { "type": "string", "const": "1.1" },
+    "epsilon": { "type": "number", "minimum": 0.0 },
     "instance_metrics": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "nodes_requested": { "type": "integer" },
-        "nodes_final": { "type": "integer" },
-        "density_requested": { "type": "number" },
-        "density_final": { "type": "number" },
-        "cv_vel_requested": { "type": "number" },
-        "cv_vel_final": { "type": "number" },
-        "modularity": { "type": "number" },
+        "nodes_requested": { "type": "integer", "minimum": 1 },
+        "nodes_final":     { "type": "integer", "minimum": 1 },
+        "density_requested": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "density_final":     { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "cv_vel_requested":  { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "cv_vel_final":      { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "modularity": { "type": ["number", "null"], "description": "null quando o cálculo é pulado por política de tamanho/timeout" },
         "seed": { "type": ["integer", "null"] }
       },
       "required": [
-        "nodes_requested", "nodes_final",
-        "density_requested", "density_final",
-        "cv_vel_requested", "cv_vel_final",
-        "modularity", "seed"
+        "nodes_requested",
+        "nodes_final",
+        "density_requested",
+        "density_final",
+        "cv_vel_requested",
+        "cv_vel_final",
+        "modularity",
+        "seed"
       ]
     },
     "nodes": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": { "type": "integer", "minimum": 0 },
           "velocity": { "type": "number", "minimum": 8.0, "maximum": 16.0 },
           "pos": {
             "type": "array",
-            "items": { "type": "number", "minimum": 0, "maximum": 1000.0 },
+            "items": { "type": "number", "minimum": 0.0, "maximum": 1000.0 },
             "minItems": 2,
-            "maxItems": 2
+            "maxItems": 2,
+            "additionalItems": false
           }
         },
         "required": ["id", "velocity", "pos"]
@@ -42,14 +52,16 @@
     },
     "edges": {
       "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
       "items": {
         "type": "array",
-        "items": { "type": "integer" },
+        "items": { "type": "integer", "minimum": 0 },
         "minItems": 2,
-        "maxItems": 2
+        "maxItems": 2,
+        "additionalItems": false
       }
     }
   },
-  "required": ["epsilon", "instance_metrics", "nodes", "edges"],
-  "instance_metrics": { "type": "object" }
+  "required": ["schema_version", "epsilon", "instance_metrics", "nodes", "edges"]
 }
