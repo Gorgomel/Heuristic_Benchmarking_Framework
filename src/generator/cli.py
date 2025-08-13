@@ -9,7 +9,6 @@ import heapq
 import numpy as np
 from jsonschema import validate
 
-# --- Import Opcional do tqdm ---
 try:
     from tqdm import tqdm
 except ImportError:
@@ -35,13 +34,11 @@ except ImportError:
 
     tqdm = TQDMFallback
 
-# --- Parâmetros Globais do Protocolo ---
 V_MIN, V_MAX = 8.0, 16.0
 POS_MIN, POS_MAX = 0.0, 1000.0
 
 
 def _load_schema():
-    """Carrega o schema de validação a partir do diretório 'specs'."""
     try:
         schema_path = (
             Path(__file__).resolve().parents[2] / "specs" / "schema_input.json"
@@ -56,7 +53,6 @@ def _load_schema():
 def generate_velocities(
     rng: np.random.Generator, n: int, target_cv: float
 ) -> np.ndarray:
-    """Gera 'n' velocidades com um CV alvo, de forma robusta e estável."""
     target_mean = (V_MAX + V_MIN) / 2
     if target_cv < 1e-6:
         return np.full(n, target_mean)
@@ -115,7 +111,6 @@ def _cv_bimodal(pi: float) -> float:
 
 
 def _prufer_to_edges(prufer: np.ndarray) -> np.ndarray:
-    """Converte sequência de Prüfer em arestas usando min-heap (correto e robusto)."""
     n = prufer.size + 2
     degree = np.ones(n, dtype=np.int64)
     nodes, counts = np.unique(prufer, return_counts=True)
@@ -147,7 +142,6 @@ def _linear_index_to_edge(indices: np.ndarray, n: int) -> np.ndarray:
 def build_edge_list(
     rng: np.random.Generator, num_nodes: int, target_density: float, verbose: bool
 ) -> np.ndarray:
-    """Gera lista de arestas com RAM constante, sem usar networkx."""
     logging.info("Iniciando construção da lista de arestas...")
     prufer = rng.integers(0, num_nodes, num_nodes - 2, dtype=np.int64)
     tree_edges = _prufer_to_edges(prufer)
@@ -193,7 +187,25 @@ def build_edge_list(
     return np.vstack([tree_edges] + new_edges)
 
 
-def save_instance(
+def build_graph(rng: np.random.Generator, num_nodes: int, target_density: float):
+    edges = build_edge_list(rng, num_nodes, target_density, verbose=False)
+
+    # Limiar de segurança: muito acima do que os testes usam (n=10,15,100)
+    if not (num_nodes <= 2_000 and len(edges) <= 200_000):
+        raise RuntimeError(
+            "build_graph() é apenas para instâncias pequenas (uso em testes). "
+            "Use build_edge_list() no fluxo real (JSON-first)."
+        )
+
+    import networkx as nx  # lazy-import
+
+    G = nx.Graph()
+    G.add_nodes_from(range(num_nodes))
+    G.add_edges_from(edges.tolist())
+    return G
+
+
+def _save_instance_core(
     edges: np.ndarray,
     velocities: np.ndarray,
     output_path: Path,
@@ -201,7 +213,17 @@ def save_instance(
     schema: dict | None,
     params: dict,
 ):
-    """Salva a instância conforme Protocolo v5.3, trabalhando apenas com arrays e primitivos."""
+    # Canonizar arestas para determinismo (min,max) + ordenação lexicográfica
+    if not isinstance(edges, np.ndarray):
+        edges = np.asarray(edges, dtype=np.int64)
+    if edges.size:
+        edges = edges.astype(np.int64, copy=False)
+        # cada par como (min, max)
+        edges = np.sort(edges, axis=1)
+        # ordenação global
+        order = np.lexsort((edges[:, 1], edges[:, 0]))
+        edges = edges[order]
+
     modularity = None
     try:
         import networkx as nx  # Lazy-import apenas para métricas
@@ -218,6 +240,7 @@ def save_instance(
 
     n = len(velocities)
     instance = {
+        "schema_version": "1.1",
         "epsilon": params["epsilon"],
         "instance_metrics": {
             "nodes_requested": params["nodes_requested"],
@@ -240,19 +263,68 @@ def save_instance(
         "edges": [[int(u), int(v)] for u, v in edges],
     }
 
+    # Validar contra schema (agora modularity pode ser null por v1.1)
     if schema and len(edges) <= 5_000_000:
         validate(instance=instance, schema=schema)
         logging.info("Validação JSONSchema concluída.")
 
+    # Respeitar extensão pedida
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    out_file = (
-        output_path
-        if str(output_path).endswith(".gz")
-        else output_path.with_suffix(output_path.suffix + ".gz")
+    out_path_str = str(output_path)
+    if out_path_str.endswith(".gz"):
+        # grava gzip texto
+        with gzip.open(out_path_str, "wt", encoding="utf-8") as f:
+            json.dump(instance, f, indent=2)
+    else:
+        # grava JSON plano no caminho EXATO (sem forçar .gz)
+        with open(out_path_str, "w", encoding="utf-8") as f:
+            json.dump(instance, f, indent=2)
+
+    logging.info(f"Instância salva em {output_path}")
+
+
+def save_instance(
+    graph,  # networkx.Graph esperado pelos testes
+    velocities: np.ndarray,
+    output_path: Path,
+    rng: np.random.Generator,
+    epsilon: float,
+):
+    import networkx as nx  # type: ignore
+
+    if not isinstance(graph, nx.Graph):
+        raise TypeError(
+            "save_instance(graph, ...) espera um networkx.Graph no primeiro argumento."
+        )
+
+    n = graph.number_of_nodes()
+    m = graph.number_of_edges()
+
+    # Extrair arestas em ndarray int64
+    edges = np.asarray(list(graph.edges()), dtype=np.int64)
+    if edges.size:
+        edges = np.sort(edges, axis=1)
+        order = np.lexsort((edges[:, 1], edges[:, 0]))
+        edges = edges[order]
+    else:
+        edges = edges.reshape(0, 2)
+
+    # Construir params mínimos para métricas/contrato
+    m_max = n * (n - 1) / 2 if n > 1 else 1
+    density_req = m / m_max
+    cv_req = (
+        float(velocities.std() / (velocities.mean() + 1e-9)) if len(velocities) else 0.0
     )
-    with gzip.open(str(out_file), "wt", encoding="utf-8") as f:
-        json.dump(instance, f, indent=2)
-    logging.info(f"Instância salva em {out_file}")
+    params = {
+        "nodes_requested": n,
+        "density_requested": density_req,
+        "cv_vel_requested": cv_req,
+        "seed": None,
+        "epsilon": float(epsilon),
+    }
+
+    schema = _load_schema()
+    return _save_instance_core(edges, velocities, output_path, rng, schema, params)
 
 
 def main():
@@ -283,7 +355,7 @@ def main():
         "epsilon": args.epsilon,
     }
     schema = _load_schema()
-    save_instance(edges, velocities, args.output, rng, schema, params)
+    _save_instance_core(edges, velocities, args.output, rng, schema, params)
 
 
 if __name__ == "__main__":
