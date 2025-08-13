@@ -1,3 +1,5 @@
+# src/orchestrator/ssh_executor.py
+import logging
 from fabric import Connection
 from pathlib import Path
 
@@ -5,66 +7,48 @@ from pathlib import Path
 REMOTE_USER = "brunn"
 REMOTE_HOST = "192.168.2.103"
 REMOTE_PORT = 2222
-REPO_SUBDIR = "Performance_Predictive_Model_Framework"
-# ADICIONE O CAMINHO QUE VOCÊ ENCONTROU NO PASSO 1
+REMOTE_REPO_PATH = "/home/brunn/MPP"  # Caminho Linux dentro do WSL1
 REMOTE_POETRY_PATH = "/home/brunn/.local/bin/poetry"
 
 
-def execute_remote_experiment(config_file: str):
+def execute_remote_experiment(params: dict) -> bool:
     """
-    Conecta-se a um host remoto via SSH em uma porta específica,
-    atualiza o repositório e executa um experimento nativamente.
+    Executa um ÚNICO experimento remotamente. Retorna True em sucesso, False em falha.
     """
-    print(
-        f"Iniciando orquestração remota em {REMOTE_USER}@{REMOTE_HOST}:{REMOTE_PORT}..."
-    )
-
-    # Caminho da chave SSH
     key_path = str(Path.home() / ".ssh" / "id_ed25519")
     connect_kwargs = {"key_filename": key_path}
 
-    # Ação Corretiva: Adicionado o parâmetro 'port' à conexão
-    with Connection(
-        host=REMOTE_HOST,
-        user=REMOTE_USER,
-        port=REMOTE_PORT,
-        connect_kwargs=connect_kwargs,
-    ) as c:
-        # Obtemos o diretório HOME do usuário remoto de forma dinâmica
-        home_dir = c.run("echo $HOME", hide=True).stdout.strip()
-        remote_repo_path = f"{home_dir}/{REPO_SUBDIR}"
+    # Constrói o comando CLI a partir dos parâmetros
+    command_cli = (
+        f"python -m src.heuristics.cli "
+        f"--instance {params['instance_path']} "
+        f"--heuristic {params['heuristic']} "
+        f"--budget {params['budget']} "
+        f"--output {params['output_path']} "
+        f"--seed {params['seed']}"
+    )
 
-        print("--> Conectado. Atualizando repositório remoto via 'git pull'...")
-        with c.cd(remote_repo_path):
-            result_pull = c.run("git pull", hide=False)
-            if result_pull.failed:
-                print(
-                    f"ERRO: Falha ao executar 'git pull' no host remoto. "
-                    f"Código de saída: {result_pull.exited}"
-                )
-                return
+    # Envolve o comando CLI com o poetry
+    full_command = f"{REMOTE_POETRY_PATH} run {command_cli}"
 
-        print("--> Repositório atualizado. Executando experimento nativamente...")
+    try:
+        with Connection(
+            host=REMOTE_HOST,
+            user=REMOTE_USER,
+            port=REMOTE_PORT,
+            connect_kwargs=connect_kwargs,
+        ) as c:
+            logging.info("--> Conectado. Atualizando repositório...")
+            with c.cd(REMOTE_REPO_PATH):
+                # O git pull pode ser feito apenas uma vez no início do pipeline,
+                # mas por segurança, deixamos aqui.
+                c.run("git pull", hide=True)
 
-        # AÇÃO CORRETIVA: Usamos o caminho absoluto para o Poetry
-        native_command = (
-            f"{REMOTE_POETRY_PATH} run python -m src.hpc_framework.cli "
-            f"--config {config_file}"
-        )
+                logging.info(f"--> Executando comando: {full_command}")
+                result = c.run(full_command, hide=False, pty=True)
 
-        print(f"--> Executando comando: {native_command}")
-        with c.cd(remote_repo_path):
-            result_run = c.run(native_command, hide=False, pty=True)
+        return result.ok
 
-        if result_run.ok:
-            print("--> Execução remota concluída com sucesso.")
-        else:
-            print(
-                f"ERRO: A execução remota falhou. "
-                f"Código de saída: {result_run.exited}"
-            )
-
-
-if __name__ == "__main__":
-    print("Executando teste do orquestrador...")
-    execute_remote_experiment(config_file="configs/placeholder_exp.yaml")
+    except Exception as e:
+        logging.error(f"Falha na conexão ou execução SSH: {e}")
+        return False

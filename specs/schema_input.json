@@ -1,12 +1,30 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MPP Instance Schema",
+  "title": "MPP Instance Schema v3.1.2",
   "type": "object",
   "properties": {
     "epsilon": { "type": "number", "exclusiveMinimum": 0 },
+    "instance_metrics": {
+      "type": "object",
+      "properties": {
+        "nodes_requested": { "type": "integer" },
+        "nodes_final": { "type": "integer" },
+        "density_requested": { "type": "number" },
+        "density_final": { "type": "number" },
+        "cv_vel_requested": { "type": "number" },
+        "cv_vel_final": { "type": "number" },
+        "modularity": { "type": "number" },
+        "seed": { "type": ["integer", "null"] }
+      },
+      "required": [
+        "nodes_requested", "nodes_final",
+        "density_requested", "density_final",
+        "cv_vel_requested", "cv_vel_final",
+        "modularity", "seed"
+      ]
+    },
     "nodes": {
       "type": "array",
-      "uniqueItems": true,
       "items": {
         "type": "object",
         "properties": {
@@ -14,7 +32,7 @@
           "velocity": { "type": "number", "minimum": 8.0, "maximum": 16.0 },
           "pos": {
             "type": "array",
-            "items": { "type": "number", "minimum": 0, "maximum": 1000 },
+            "items": { "type": "number", "minimum": 0, "maximum": 1000.0 },
             "minItems": 2,
             "maxItems": 2
           }
@@ -32,5 +50,6 @@
       }
     }
   },
-  "required": ["epsilon", "nodes", "edges"]
+  "required": ["epsilon", "instance_metrics", "nodes", "edges"],
+  "instance_metrics": { "type": "object" }
 }

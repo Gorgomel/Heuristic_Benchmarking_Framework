@@ -1,0 +1,59 @@
+# configs/plan_phase_1.yaml
+# Plano Experimental Completo para a Fase 1: Caracterização de Heurísticas.
+# Este arquivo define todas as combinações de parâmetros a serem executadas
+# pelo orquestrador do pipeline (scripts/pipeline.py).
+
+parameters:
+  # Lista de nomes de arquivos de instância a serem testados.
+  # Estes arquivos devem ser gerados previamente e existir em 'data/instances/'.
+  instances:
+    # --- Instâncias Pequenas (Small) ---
+    - "s_d-low_cv-low_01.json"
+    - "s_d-mid_cv-mid_02.json"
+    - "s_d-high_cv-high_03.json"
+    - "s_d-low_cv-high_04.json"  # Testa alta variância em grafos esparsos
+    - "s_d-high_cv-low_05.json"  # Testa baixa variância em grafos densos
+
+    # --- Instâncias Médias (Medium) ---
+    - "m_d-low_cv-low_01.json"
+    - "m_d-mid_cv-mid_02.json"
+    - "m_d-high_cv-high_03.json"
+    - "m_d-low_cv-high_04.json"
+    - "m_d-high_cv-low_05.json"
+
+    # --- Instâncias Grandes (Large) ---
+    - "l_d-low_cv-low_01.json"
+    - "l_d-mid_cv-mid_02.json"
+    - "l_d-high_cv-high_03.json"
+    - "l_d-low_cv-high_04.json"
+    - "l_d-high_cv-low_05.json"
+
+    # --- Instância Real ---
+    # - "RoadNet-CA_subgraph.json" #
+
+  # Lista de heurísticas a serem executadas.
+  # Os nomes devem corresponder aos identificadores no 'heuristics/cli.py'.
+  heuristics:
+    - "greedy"
+    - "first_improvement"
+    - "best_improvement"
+    - "grasp"
+    - "sa"      # Simulated Annealing
+    - "ils"     # Iterated Local Search
+    - "ga"      # Genetic Algorithm
+
+  # Orçamentos de avaliações da função-objetivo a serem testados para cada heurística.
+  budgets:
+    - 10000
+    - 50000
+    - 100000
+    - 200000
+
+  # Sementes aleatórias para garantir a robustez estatística.
+  # Cada combinação (instância, heurística, budget) será repetida com cada seed.
+  seeds:
+    - 42
+    - 101
+    - 2023
+    - 777
+    - 1337

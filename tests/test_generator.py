@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from jsonschema import validate
 
-# Adiciona o diretório 'src' ao path do sistema para permitir a importação
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.generator.cli import (
@@ -50,7 +49,7 @@ def test_cli_end_to_end(tmp_path):
         "--output",
         str(output_file),
         "--epsilon",
-        epsilon_value,  # <-- MUDANÇA: Argumento epsilon adicionado
+        epsilon_value,
         "--seed",
         "42",
     ]
@@ -61,9 +60,7 @@ def test_cli_end_to_end(tmp_path):
         data = json.load(f)
 
     validate(instance=data, schema=SCHEMA)
-    assert data["epsilon"] == float(
-        epsilon_value
-    )  # Verifica se o epsilon foi salvo corretamente
+    assert data["epsilon"] == float(epsilon_value)
     assert len(data["nodes"]) <= 25
 
 
@@ -75,7 +72,6 @@ def test_save_instance_validates_against_schema(tmp_path):
     velocities = generate_velocities(rng, graph.number_of_nodes(), 0.2)
     epsilon_value = 50.0
 
-    # MUDANÇA: Passando o argumento 'epsilon' para a função
     save_instance(graph, velocities, output_file, rng, epsilon_value)
 
     with open(output_file, "r") as f:
@@ -113,21 +109,21 @@ def test_reproducibility_with_seed(tmp_path):
     g1 = build_graph(rng1, 15, 0.3)
     v1 = generate_velocities(rng1, g1.number_of_nodes(), 0.25)
     out1 = tmp_path / "run1.json"
-    save_instance(g1, v1, out1, rng1, epsilon_value)  # <-- MUDANÇA: Epsilon adicionado
+    save_instance(g1, v1, out1, rng1, epsilon_value)
 
     # Execução 2 (mesma seed)
     rng2 = np.random.default_rng(42)
     g2 = build_graph(rng2, 15, 0.3)
     v2 = generate_velocities(rng2, g2.number_of_nodes(), 0.25)
     out2 = tmp_path / "run2.json"
-    save_instance(g2, v2, out2, rng2, epsilon_value)  # <-- MUDANÇA: Epsilon adicionado
+    save_instance(g2, v2, out2, rng2, epsilon_value)
 
     # Execução 3 (seed diferente)
     rng3 = np.random.default_rng(43)
     g3 = build_graph(rng3, 15, 0.3)
     v3 = generate_velocities(rng3, g3.number_of_nodes(), 0.25)
     out3 = tmp_path / "run3.json"
-    save_instance(g3, v3, out3, rng3, epsilon_value)  # <-- MUDANÇA: Epsilon adicionado
+    save_instance(g3, v3, out3, rng3, epsilon_value)
 
     assert out1.read_text() == out2.read_text()
     assert out1.read_text() != out3.read_text()
