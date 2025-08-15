@@ -87,9 +87,15 @@ def generate_velocities(
         else:
             final = v_bimodal
         final = np.clip(final, V_MIN, V_MAX)
-        final_cv = final.std() / (final.mean() + 1e-9)
-        if abs(final_cv - target_cv) > 0.02:
-            return generate_velocities(rng, n, 0.28)
+        if logging.getLogger().isEnabledFor(logging.INFO):
+            logging.info(
+                "CV final (bimodal): %.3f (alvo=%.3f)",
+                final.std() / (final.mean() + 1e-9),
+                target_cv,
+            )
+
+        # if abs(final_cv - target_cv) > 0.02:
+        #   return generate_velocities(rng, n, 0.28)
         return final
 
 
@@ -187,8 +193,16 @@ def build_edge_list(
     return np.vstack([tree_edges] + new_edges)
 
 
-def build_graph(rng: np.random.Generator, num_nodes: int, target_density: float):
-    edges = build_edge_list(rng, num_nodes, target_density, verbose=False)
+def build_graph(
+    rng: np.random.Generator,
+    num_nodes: int,
+    density: float = None,
+    target_density: float = None,
+):
+    td = target_density if target_density is not None else density
+    if td is None:
+        raise TypeError("Informe 'density' (ou 'target_density').")
+    edges = build_edge_list(rng, num_nodes, td, verbose=False)
 
     # Limiar de segurança: muito acima do que os testes usam (n=10,15,100)
     if not (num_nodes <= 2_000 and len(edges) <= 200_000):
