@@ -145,21 +145,84 @@ def _linear_index_to_edge(indices: np.ndarray, n: int) -> np.ndarray:
     return np.vstack([i, j]).T
 
 
+def random_tree_wilson(rng: np.random.Generator, n: int) -> np.ndarray:
+    """
+    Uniform Spanning Tree em K_n via Algoritmo de Wilson.
+    Retorna array (n-1, 2) de arestas, cada par como (u,v) com u < v.
+    Determinístico dado o rng.
+    """
+    if n <= 1:
+        return np.empty((0, 2), dtype=np.int64)
+
+    in_tree = np.zeros(n, dtype=bool)
+    parent = np.full(n, -1, dtype=np.int64)
+
+    # raiz aleatória
+    root = int(rng.integers(0, n))
+    in_tree[root] = True
+
+    for start in range(n):
+        if in_tree[start]:
+            continue
+
+        curr = start
+        path: list[int] = []
+        pos: dict[int, int] = {}
+
+        # random walk com loop-erasure
+        while not in_tree[curr]:
+            if curr in pos:
+                k = pos[curr]
+                for node in path[k + 1 :]:
+                    pos.pop(node, None)
+                path = path[: k + 1]
+            else:
+                pos[curr] = len(path)
+                path.append(curr)
+
+            r = int(rng.integers(0, n - 1))
+            nxt = r + (r >= curr)  # evita auto-laço
+            curr = nxt
+
+        # conecta caminho à árvore (curr já está na árvore)
+        prev = curr
+        for v in reversed(path):
+            parent[v] = prev
+            in_tree[v] = True
+            prev = v
+
+    # materializa arestas (min,max) e ordena (determinismo)
+    uu, vv = [], []
+    for i, p in enumerate(parent):
+        if p != -1:
+            a, b = (i, p) if i < p else (p, i)
+            uu.append(a)
+            vv.append(b)
+    edges = np.vstack([np.array(uu, dtype=np.int64), np.array(vv, dtype=np.int64)]).T
+    if edges.size:
+        edges = edges[np.lexsort((edges[:, 1], edges[:, 0]))]
+    return edges
+
+
 def build_edge_list(
     rng: np.random.Generator, num_nodes: int, target_density: float, verbose: bool
 ) -> np.ndarray:
     logging.info("Iniciando construção da lista de arestas...")
-    prufer = rng.integers(0, num_nodes, num_nodes - 2, dtype=np.int64)
-    tree_edges = _prufer_to_edges(prufer)
 
+    tree_edges = random_tree_wilson(rng, num_nodes)
     m_max = num_nodes * (num_nodes - 1) // 2
     m_target = int(target_density * m_max)
     needed = m_target - (num_nodes - 1)
+
     if needed <= 0:
+        tree_edges = np.sort(tree_edges, axis=1)
+        tree_edges = tree_edges[np.lexsort((tree_edges[:, 1], tree_edges[:, 0]))]
         return tree_edges
 
     logging.info(f"Árvore criada; adicionando {needed} arestas de densidade...")
+
     mask = np.ones(m_max, dtype=bool)
+
     u, v = tree_edges.T
     idx = u * num_nodes + v - u * (u + 1) // 2 - (u + 1)
     idx = idx.astype(np.int64)
@@ -168,6 +231,7 @@ def build_edge_list(
     new_edges = []
     stall = 0
     factor = 1.3
+
     with tqdm(
         total=needed,
         desc="Adicionando arestas",
@@ -175,22 +239,31 @@ def build_edge_list(
         disable=(not verbose) or (not sys.stderr.isatty()),
     ) as pbar:
         while needed > 0:
-            batch_size = max(20000, int(needed * factor))
+            batch_size = max(20_000, int(needed * factor))
             cand = rng.integers(0, m_max, batch_size, dtype=np.int64)
+
             valid = cand[mask[cand]]
             if valid.size == 0:
                 stall += 1
                 if stall >= 3:
-                    factor = 1.8
+                    factor = max(factor, 1.8)
                 continue
+
             unique = np.unique(valid)
             mask[unique] = False
+
             use = unique[:needed]
-            new_edges.append(_linear_index_to_edge(use, num_nodes))
-            pbar.update(len(use))
-            needed -= len(use)
-            stall = 0
-    return np.vstack([tree_edges] + new_edges)
+            if use.size:
+                new_edges.append(_linear_index_to_edge(use, num_nodes))
+                pbar.update(int(use.size))
+                needed -= int(use.size)
+                stall = 0
+
+    edges = np.vstack([tree_edges] + new_edges)
+    edges = np.sort(edges, axis=1)
+    edges = edges[np.lexsort((edges[:, 1], edges[:, 0]))]
+
+    return edges
 
 
 def build_graph(
