@@ -1,0 +1,15 @@
+{
+  "neg_fo1": {
+    "min": "-(|V| * 16.0)",
+    "max": 0.0
+  },
+  "num_clusters_norm": {
+    "min": "1 / |V|",
+    "max": 1.0
+  },
+  "desvio_vel": {
+    "min": 0.0,
+    "max": "delta_v"
+  },
+  "overflow_policy": "cap_and_flag"
+}

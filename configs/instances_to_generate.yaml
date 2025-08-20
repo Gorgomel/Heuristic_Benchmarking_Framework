@@ -1,0 +1,29 @@
+# configs/instances_to_generate.yaml
+# Manifesto que descreve como gerar cada instância sintética.
+
+# Parâmetros fixos para todas as instâncias
+epsilon: 50.0
+
+# Lista de instâncias a serem geradas
+instances:
+  - filename: "s_d-low_cv-low_01.json.gz"
+    params: { nodes: 100, density: 0.05, cv_vel: 0.1, seed: 101 }
+
+  - filename: "s_d-mid_cv-mid_02.json.gz"
+    params: { nodes: 150, density: 0.15, cv_vel: 0.25, seed: 102 }
+
+  - filename: "s_d-high_cv-high_03.json.gz"
+    params: { nodes: 250, density: 0.35, cv_vel: 0.4, seed: 103 }
+
+  - filename: "s_d-low_cv-high_04.json.gz"
+    params: { nodes: 120, density: 0.05, cv_vel: 0.4, seed: 104 }
+
+  - filename: "s_d-high_cv-low_05.json.gz"
+    params: { nodes: 200, density: 0.3, cv_vel: 0.1, seed: 105 }
+
+  # --- Instâncias Médias (Medium) ---
+  - filename: "m_d-low_cv-low_01.json.gz"
+    params: { nodes: 500, density: 0.05, cv_vel: 0.1, seed: 201 }
+  # ... e assim por diante para todas as 15 instâncias sintéticas ...
+  - filename: "l_d-high_cv-low_05.json.gz"
+    params: { nodes: 4500, density: 0.3, cv_vel: 0.1, seed: 305 }
