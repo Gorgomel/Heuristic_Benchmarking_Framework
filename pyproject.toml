@@ -1,6 +1,6 @@
 [project]
 name = "hpc-framework"
-version = "0.1.0"
+version = "6.1.0"
 description = "Framework for Heuristic Performance Characterization"
 authors = [
     {name = "Brunno Sink",email = "brunnosink2@gmail.com"}
