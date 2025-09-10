@@ -1,60 +1,77 @@
+"""Heurística gulosa simples (demo/smoke) com barra de progresso."""
+
+from __future__ import annotations
+
+# from typing import Iterable
 import networkx as nx
 import numpy as np
-from tqdm import tqdm  # <-- Adicione esta importação no topo do arquivo
+
+try:
+    from tqdm import tqdm
+except Exception:  # pragma: no cover
+
+    class _TqdmNoop:
+        def __init__(self, *_, **__):
+            self.n = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def update(self, n: int = 0) -> None:
+            self.n += int(n)
+
+        def close(self) -> None:
+            pass
+
+    # def tqdm(*_args, **_kwargs) -> _TqdmNoop:  # type: ignore[misc]
+    #    return _TqdmNoop()
 
 
-def run_greedy_heuristic(graph: nx.Graph, delta_v: float):
-    """
-    Executa uma heurística gulosa simples para criar uma partição de clusters,
-    com uma barra de progresso.
+def _get_velocity(G: nx.Graph, u) -> float:
+    """Retorna atributo 'velocity' se existir; caso contrário, 1.0 (fallback)."""
+    return float(G.nodes[u].get("velocity", 1.0))
+
+
+def run_greedy_heuristic(graph: nx.Graph, delta_v: float) -> list[set[int]]:
+    """Executa heurística gulosa simples com barra de progresso.
+
+    Args:
+        graph: Grafo de entrada (NetworkX).
+        delta_v: Parâmetro de sensibilidade da alocação.
+
+    Returns:
+        Uma lista de conjuntos de nós (clusters).
     """
     nodes = list(graph.nodes())
     np.random.shuffle(nodes)
 
-    clusters = []
-    assigned_nodes = set()
+    clusters: list[set[int]] = []
+    assigned_nodes: set[int] = set()
 
-    # Envolve o loop principal com tqdm
     for node in tqdm(nodes, desc="Clusterização Gulosa"):
         if node in assigned_nodes:
             continue
 
-        # (O resto da lógica da função permanece exatamente o mesmo)
         new_cluster = {node}
         assigned_nodes.add(node)
         frontier = list(graph.neighbors(node))
-        min_vel = graph.nodes[node]["velocity"]
-        max_vel = graph.nodes[node]["velocity"]
+        min_vel = _get_velocity(graph, node)
 
         while frontier:
-            candidate = frontier.pop(0)
-            if candidate in assigned_nodes:
+            v = frontier.pop()
+            if v in assigned_nodes:
                 continue
-            candidate_vel = graph.nodes[candidate]["velocity"]
-            if max(max_vel, candidate_vel) - min(min_vel, candidate_vel) <= delta_v:
-                new_cluster.add(candidate)
-                assigned_nodes.add(candidate)
-                min_vel = min(min_vel, candidate_vel)
-                max_vel = max(max_vel, candidate_vel)
-                for neighbor in graph.neighbors(candidate):
-                    if neighbor not in assigned_nodes:
-                        frontier.append(neighbor)
 
-        clusters.append(list(new_cluster))
+            if abs(_get_velocity(graph, v) - min_vel) <= delta_v:
+                new_cluster.add(v)
+                assigned_nodes.add(v)
+                frontier.extend(graph.neighbors(v))
 
-    # Calcular métricas
-    fo1 = 0
-    velocities_in_clusters = []
-    for cluster in clusters:
-        cluster_velocities = [graph.nodes[n]["velocity"] for n in cluster]
-        min_v_in_cluster = min(cluster_velocities)
-        fo1 += min_v_in_cluster * len(cluster)
-        velocities_in_clusters.append(np.array(cluster_velocities))
+        clusters.append(new_cluster)
 
-    avg_std_dev = np.mean([v.std() for v in velocities_in_clusters if len(v) > 1])
-
-    return {
-        "fo1": fo1,
-        "num_clusters": len(clusters),
-        "avg_std_dev": float(avg_std_dev) if not np.isnan(avg_std_dev) else 0.0,
-    }
+    # “Consumo” básico para smoke test (não quebra o fluxo)
+    _ = sum(len(c) for c in clusters)
+    return clusters

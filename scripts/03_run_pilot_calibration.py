@@ -1,5 +1,8 @@
+"""Script de calibração piloto (shell para rodadas rápidas e coleta de métricas)."""
+
 import sys
 from pathlib import Path
+
 import numpy as np
 
 # Adiciona o diretório 'src' ao path para importação
@@ -43,6 +46,4 @@ if __name__ == "__main__":
     # Cenário 2: Grande e Denso (tende a gerar menos clusters e FO1 maior)
     run_calibration_scenario(nodes=5000, density=0.3, cv_vel=0.4, seed=2)
 
-    print(
-        "\nAnálise concluída. Use os valores MÁXIMOS observados para atualizar 'bounds.json'."
-    )
+    print("\nAnálise concluída. Use os valores MÁXIMOS observados para atualizar 'bounds.json'.")

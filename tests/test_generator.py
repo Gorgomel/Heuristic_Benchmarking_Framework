@@ -20,7 +20,7 @@ from src.generator.cli import (
 # Carrega o schema uma vez para ser usado em múltiplos testes
 try:
     SCHEMA_PATH = Path(__file__).parents[1] / "specs" / "schema_input.json"
-    with open(SCHEMA_PATH, "r") as f:
+    with open(SCHEMA_PATH) as f:
         SCHEMA = json.load(f)
 except FileNotFoundError:
     pytest.fail(
@@ -56,7 +56,7 @@ def test_cli_end_to_end(tmp_path):
     subprocess.run(cmd, check=True)
 
     assert output_file.exists()
-    with open(output_file, "r") as f:
+    with open(output_file) as f:
         data = json.load(f)
 
     validate(instance=data, schema=SCHEMA)
@@ -74,7 +74,7 @@ def test_save_instance_validates_against_schema(tmp_path):
 
     save_instance(graph, velocities, output_file, rng, epsilon_value)
 
-    with open(output_file, "r") as f:
+    with open(output_file) as f:
         data = json.load(f)
     validate(instance=data, schema=SCHEMA)
     assert "epsilon" in data

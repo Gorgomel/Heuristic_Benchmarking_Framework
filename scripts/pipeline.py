@@ -1,31 +1,28 @@
 # scripts/pipeline.py
+"""Pipeline declarativo local (varre configs YAML e dispara execuções unitárias)."""
+
 import argparse
 import itertools
 import logging
+import sys
 from pathlib import Path
 
 import yaml
 from tqdm import tqdm
 
-# Adiciona o diretório 'src' ao path para permitir importações
-import sys
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.orchestrator.ssh_executor import (
+from src.orchestrator.ssh_executor import (  # noqa: E402
     execute_remote_experiment,
 )
 
-# --- Configuração do Logging ---
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
 
+def main() -> None:
+    """CLI do pipeline local: lê YAML(s), produz cartesianas e executa/aloca jobs."""
+    parser = argparse.ArgumentParser(description="Orquestrador de Pipeline para o Framework HPC.")
+    # ... resto inalterado ...
+    # Se houver linhas >100 colunas, deixe — ignoramos E501 no Ruff.
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Orquestrador de Pipeline para o Framework HPC."
-    )
     parser.add_argument(
         "--plan",
         type=Path,
@@ -41,14 +38,12 @@ def main():
     args = parser.parse_args()
 
     # Carrega o plano experimental
-    with open(args.plan, "r") as f:
+    with open(args.plan) as f:
         plan = yaml.safe_load(f)["parameters"]
 
     # Gera todas as combinações de experimentos
     all_combinations = list(
-        itertools.product(
-            plan["instances"], plan["heuristics"], plan["budgets"], plan["seeds"]
-        )
+        itertools.product(plan["instances"], plan["heuristics"], plan["budgets"], plan["seeds"])
     )
 
     logging.info(
@@ -59,9 +54,7 @@ def main():
     args.results_dir.mkdir(parents=True, exist_ok=True)
 
     # Loop principal com a barra de progresso
-    for instance, heuristic, budget, seed in tqdm(
-        all_combinations, desc="Progresso do Pipeline"
-    ):
+    for instance, heuristic, budget, seed in tqdm(all_combinations, desc="Progresso do Pipeline"):
         # --- Lógica de Checkpointing ---
         instance_name = Path(instance).stem
         output_filename = f"{instance_name}_{heuristic}_b{budget}_s{seed}.json"

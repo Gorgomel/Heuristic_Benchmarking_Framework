@@ -1,7 +1,10 @@
 # src/orchestrator/ssh_executor.py
 import logging
-from fabric import Connection
 from pathlib import Path
+
+from fabric import Connection
+
+"""Executores remotos para rodar um experimento único via SSH."""
 
 # --- Detalhes da Conexão e do Projeto ---
 REMOTE_USER = "brunn"
@@ -12,8 +15,13 @@ REMOTE_POETRY_PATH = "/home/brunn/.local/bin/poetry"
 
 
 def execute_remote_experiment(params: dict) -> bool:
-    """
-    Executa um ÚNICO experimento remotamente. Retorna True em sucesso, False em falha.
+    """Executa um único experimento via SSH.
+
+    Args:
+        params: Dicionário com parâmetros de execução.
+
+    Returns:
+        True em sucesso; False em falha.
     """
     key_path = str(Path.home() / ".ssh" / "id_ed25519")
     connect_kwargs = {"key_filename": key_path}

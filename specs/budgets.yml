@@ -1,0 +1,55 @@
+schema_version: "1.0"
+
+k_values: [4, 8, 16]
+beta_values: [0.00, 0.05, 0.10]
+
+seeds:
+  deterministic: [0]
+  stochastic: [0, 1, 2, 3, 4]
+
+budgets:
+  small:
+    type: nfe
+    value: 5000
+    checkpoint_every_nfe: 100
+    time_cap_s: 30
+  medium:
+    type: nfe
+    value: 20000
+    checkpoint_every_nfe: 200
+    time_cap_s: 120
+  large:
+    type: time_s
+    value: 300
+    checkpoint_every_nfe: 500
+
+algorithms:
+  greedy_local:
+    stochastic: false
+    hyperparams:
+      local_passes: 2        # nº de passes de refinamento
+  sa:
+    stochastic: true
+    hyperparams_grid:
+      T0:        [1.0, 5.0, 10.0]
+      alpha:     [0.90, 0.95, 0.99]
+      iters_per_T: [100, 300]
+  ga:
+    stochastic: true
+    hyperparams_grid:
+      pop_size:  [50, 100]
+      cx_prob:   [0.6, 0.8]
+      mut_prob:  [0.1, 0.2]
+      elitism:   [1, 2]
+  metis:
+    stochastic: false
+    params:
+      ncuts: 5    # múltiplas rodadas internas
+  kahip:
+    stochastic: false
+    params:
+      mode: fast  # ou "strong" conforme disponibilidade
+
+defaults:
+  budget_preset: medium
+  checkpoint_min_interval_s: 0.25  # evita bursts de IO

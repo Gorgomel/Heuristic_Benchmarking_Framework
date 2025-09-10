@@ -1,11 +1,13 @@
 # scripts/master_pipeline.py
+"""Orquestrador “macro” de campanhas (agendamento sequencial/por lotes)."""
+
 import logging
 import subprocess
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import yaml
 
-# Configuração
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 # Caminhos relativos à raiz do projeto
@@ -22,7 +24,7 @@ def generate_instances():
     """Verifica e gera as instâncias sintéticas que faltam."""
     logging.info("--- Fase de Geração de Instâncias ---")
 
-    with open(INSTANCE_MANIFEST_PATH, "r") as f:
+    with open(INSTANCE_MANIFEST_PATH) as f:
         manifest = yaml.safe_load(f)
 
     epsilon = manifest["epsilon"]
@@ -86,9 +88,7 @@ def run_experiments():
     try:
         subprocess.run(command, check=True)
     except subprocess.CalledProcessError:
-        logging.error(
-            "O pipeline de experimentos falhou. Veja os logs para mais detalhes."
-        )
+        logging.error("O pipeline de experimentos falhou. Veja os logs para mais detalhes.")
 
 
 if __name__ == "__main__":

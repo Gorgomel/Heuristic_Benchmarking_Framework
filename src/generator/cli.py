@@ -1,4 +1,6 @@
 # src/generator/cli.py
+"""CLI do gerador de instâncias (JSON-first; schema v1.1)."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,14 +11,15 @@ import math
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from jsonschema import validate
 
-# =========================
-# Parâmetros Globais
-# =========================
+# Telemetria leve para auditoria (preenchida em build_edge_list / generate_velocities)
+_TELEMETRY: SimpleNamespace | None = None
+
+# Parâmetros globais
 V_MIN, V_MAX = 8.0, 16.0
 POS_MIN, POS_MAX = 0.0, 1000.0
 
@@ -26,44 +29,43 @@ MOD_GREEDY_EDGE_LIMIT_FRAC = 0.30  # ou 30% de M = n(n-1)/2
 
 
 def _m_crit(n: int) -> int:
-    """Limiar prático para despachar para o modo 'dense-fast'."""
+    """Retorna o limiar prático para despachar para o modo 'dense-fast'."""
     return int(2 * n * math.log(max(n, 2)))
 
 
-# =========================
-# tqdm fallback (opcional)
-# =========================
+# ---------------------------- tqdm (fallback) ----------------------------
+
 try:
-    from tqdm import tqdm  # type: ignore
+    from tqdm import tqdm
 except Exception:  # pragma: no cover
 
-    class _TQDMFallback(SimpleNamespace):
-        def __init__(self, iterable=None, **kwargs):
-            self.iterable = iterable or []
+    class _TqdmNoop:
+        """Fallback de barra de progresso (context manager no-op)."""
 
-        def __iter__(self):
-            return iter(self.iterable)
-
-        def update(self, *a, **kw):
-            pass
-
-        def close(self, *a, **kw):
-            pass
+        def __init__(self, *_, **__):
+            self.n = 0
 
         def __enter__(self):
             return self
 
-        def __exit__(self, *a):
+        def __exit__(self, *args):
+            return False
+
+        def update(self, n: int = 0) -> None:
+            self.n += int(n)
+
+        def close(self) -> None:  # compatível com tqdm
             pass
 
-    tqdm = _TQDMFallback  # type: ignore
+    def tqdm(*_args, **_kwargs) -> _TqdmNoop:
+        return _TqdmNoop()
 
 
-# =========================
-# Utilidades
-# =========================
+# ------------------------------ Utilidades ------------------------------
+
+
 def _version_tuple(s: str) -> tuple[int, int, int]:
-    """'X.Y.Z' -> (X,Y,Z) para comparação semântica robusta."""
+    """Converte 'X.Y.Z' em tupla (X, Y, Z) para comparação semântica robusta."""
     parts = (s.split(".") + ["0", "0"])[:3]
     try:
         return tuple(int(p) for p in parts)  # type: ignore[return-value]
@@ -71,12 +73,11 @@ def _version_tuple(s: str) -> tuple[int, int, int]:
         return (0, 0, 0)
 
 
-def _load_schema() -> Optional[dict]:
+def _load_schema() -> dict | None:
+    """Carrega o JSON Schema de entrada; retorna None se ausente."""
     try:
-        schema_path = (
-            Path(__file__).resolve().parents[2] / "specs" / "schema_input.json"
-        )
-        with open(schema_path, "r", encoding="utf-8") as f:
+        schema_path = Path(__file__).resolve().parents[2] / "specs" / "schema_input.json"
+        with open(schema_path, encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         logging.warning("Arquivo de schema não encontrado. Pulando validação.")
@@ -84,10 +85,7 @@ def _load_schema() -> Optional[dict]:
 
 
 def _canonicalize_and_sort_edges(edges: np.ndarray) -> np.ndarray:
-    """
-    Ordena cada par para (min,max) sem efeitos colaterais e ordena linhas.
-    Evita self-loops acidentais como (v,v) por operações in-place.
-    """
+    """Ordena pares (min, max) e as linhas; evita self-loops in-place."""
     if edges.size == 0:
         return edges.astype(np.int64)
     edges = edges.astype(np.int64, copy=False)
@@ -99,28 +97,26 @@ def _canonicalize_and_sort_edges(edges: np.ndarray) -> np.ndarray:
 
 
 def _linear_index_to_edge(indices: np.ndarray, n: int) -> np.ndarray:
-    """Converte índices lineares (0..M-1) em pares (i,j), i<j, no triângulo superior de K_n."""
-    i = (
-        n - 2 - np.floor(np.sqrt(-8 * indices + 4 * n * (n - 1) - 7) / 2 - 0.5)
-    ).astype(np.int64)
+    """Converte índices lineares (0..M-1) em pares (i,j), i<j (triângulo superior de K_n)."""
+    i = (n - 2 - np.floor(np.sqrt(-8 * indices + 4 * n * (n - 1) - 7) / 2 - 0.5)).astype(np.int64)
     j = (indices + i * (i + 1) // 2 - i * n + i + 1).astype(np.int64)
     return np.vstack([i, j]).T
 
 
 def _edge_to_linear_index(u: np.ndarray, v: np.ndarray, n: int) -> np.ndarray:
-    """Inverso de _linear_index_to_edge para i<j, vectorizado."""
+    """Inverso de _linear_index_to_edge para i<j, vetorizado."""
     return (u * n + v - u * (u + 1) // 2 - (u + 1)).astype(np.int64)
 
 
-# =========================
-# Algoritmo de Wilson — UST em K_n
-# =========================
+# -------------------------- Árvore de Wilson (UST) --------------------------
+
+
 def random_tree_wilson(rng: np.random.Generator, n: int) -> np.ndarray:
-    """
-    Uniform Spanning Tree via Algoritmo de Wilson (loop-erased random walks) em K_n.
-      - Passo evita auto-laço (não existe aresta (u,u) em K_n).
-      - Loop-erasure mantém o nó revisitado (truncamento em cut+1).
-      - Caminho é conectado “de trás pra frente” ao primeiro nó já em árvore.
+    """Gera uma UST em K_n via Wilson (loop-erased random walks).
+
+    - Passo evita auto-laço (não existe aresta (u,u) em K_n).
+    - Loop-erasure mantém o nó revisitado (truncamento em cut+1).
+    - Caminho é conectado “de trás pra frente” ao primeiro nó já em árvore.
     Retorna (n-1,2) com pares (i,j), i<j, ordenados lexicograficamente.
     """
     if n < 2:
@@ -136,25 +132,22 @@ def random_tree_wilson(rng: np.random.Generator, n: int) -> np.ndarray:
         if in_tree[start]:
             continue
 
-        # Caminhada com loop-erasure
         path: list[int] = []
         pos: dict[int, int] = {}
         u = start
         while not in_tree[u]:
             if u in pos:
                 cut = pos[u]
-                path = path[: cut + 1]  # mantém u revisitado
+                path = path[: cut + 1]
                 pos = {node: i for i, node in enumerate(path)}
             else:
                 pos[u] = len(path)
                 path.append(u)
 
-            # passo em K_n evitando auto-laço
             r = int(rng.integers(0, n - 1))
             u = r + (r >= u)  # uniforme em {0..n-1}\{u}
 
-        # Conecta caminho à árvore (do fim para o início)
-        prev = u  # nó já em árvore
+        prev = u
         for v in reversed(path):
             parent[v] = prev
             in_tree[v] = True
@@ -164,12 +157,13 @@ def random_tree_wilson(rng: np.random.Generator, n: int) -> np.ndarray:
     return _canonicalize_and_sort_edges(edges)
 
 
-# =========================
-# Construtor de arestas — Dispatcher “constructive” × “dense-fast”
-# =========================
+# ---------------- Construtor de arestas (constructive × dense-fast) ----------------
+
+
 def build_edge_list(
     rng: np.random.Generator, num_nodes: int, target_density: float, verbose: bool
 ) -> np.ndarray:
+    """Constrói arestas conforme densidade alvo (dispatcher constructive × dense-fast)."""
     logging.info("Iniciando construção da lista de arestas...")
     tree_edges = random_tree_wilson(rng, num_nodes)
 
@@ -180,9 +174,8 @@ def build_edge_list(
         return tree_edges
 
     mode = "dense-fast" if m_target > _m_crit(num_nodes) else "constructive"
-    logging.info(f"Árvore criada; adicionando {needed:,} arestas... (mode={mode})")
+    logging.info("Árvore criada; adicionando %s arestas... (mode=%s)", f"{needed:,}", mode)
 
-    # Máscara global — marca as da árvore
     mask = np.ones(m_max, dtype=bool)
     u, v = tree_edges.T
     mask[_edge_to_linear_index(u, v, num_nodes)] = False
@@ -215,17 +208,18 @@ def build_edge_list(
                     mask[use] = False
                     new_edges.append(_linear_index_to_edge(use, num_nodes))
                     pbar.update(int(use.size))
-                    acceptance_last = float(valid.size) / float(
-                        batch_size
-                    )  # taxa bruta do pool
+                    acceptance_last = float(valid.size) / float(batch_size)
                     if verbose and pbar.n == use.size:
                         logging.info(
-                            f"pool={batch_size:,}, aceitação={100*acceptance_last:.1f}% (faltam={needed:,})"
+                            "pool=%s, aceitação=%.1f%% (faltam=%s)",
+                            f"{batch_size:,}",
+                            100 * acceptance_last,
+                            f"{needed:,}",
                         )
                     needed -= int(use.size)
                     stall = 0
     else:
-        factor = 3.8  # agressivo
+        factor = 3.8
         with tqdm(
             total=needed,
             desc="Adicionando arestas (dense-fast)",
@@ -251,7 +245,10 @@ def build_edge_list(
                     acceptance_last = float(valid.size) / float(batch_size)
                     if verbose and pbar.n == use.size:
                         logging.info(
-                            f"pool={batch_size:,}, aceitação={100*acceptance_last:.1f}% (faltam={needed:,})"
+                            "pool=%s, aceitação=%.1f%% (faltam=%s)",
+                            f"{batch_size:,}",
+                            100 * acceptance_last,
+                            f"{needed:,}",
                         )
                     needed -= int(use.size)
                     stall = 0
@@ -265,16 +262,15 @@ def build_edge_list(
         tree_method="wilson",
         density_mode=mode,
         acceptance_last=acceptance_last,
-        # vel_sampler/cv_capped são preenchidos em generate_velocities
     )
     return edges
 
 
-# =========================
-# Samplers de velocidades: Beta 4p (CV baixo) + Mistura simétrica (CV alto)
-# =========================
+# --------------------- Amostrador de velocidades (CV) ---------------------
+
+
 def _beta_4p_from_mean_cv(mean_target: float, cv_target: float) -> tuple[float, float]:
-    """Converte (média, CV) em [V_MIN,V_MAX] para (α,β) de uma Beta em [0,1]."""
+    """Converte (média, CV) em [V_MIN,V_MAX] para (α, β) de uma Beta em [0,1]."""
     a, b = V_MIN, V_MAX
     width = b - a
     mu_t = float(mean_target)
@@ -301,22 +297,18 @@ def _beta_4p_from_mean_cv(mean_target: float, cv_target: float) -> tuple[float, 
     return float(alpha), float(beta)
 
 
-def generate_velocities(
-    rng: np.random.Generator, n: int, target_cv: float
-) -> np.ndarray:
-    """
-    Gera 'n' velocidades em [V_MIN,V_MAX] com média no centro e CV alvo.
-      - CV ≤ 0.29: Beta 4-parâmetros (moment matching), reescala e clip; realinha média uma vez.
-      - CV > 0.29: mistura simétrica (50/50) nos extremos + ruído leve + correção de escala; média recentrada.
+def generate_velocities(rng: np.random.Generator, n: int, target_cv: float) -> np.ndarray:
+    """Gera velocidades em [V_MIN,V_MAX] com média no centro e CV alvo.
+
+    - CV ≤ 0.29: Beta 4-parâmetros (moment matching), reescala e clip; realinha média uma vez.
+    - CV > 0.29: mistura simétrica (50/50) nos extremos + ruído leve + correção de escala; média recentrada.
     Audita |CV_emp - CV_alvo| > 0.02 (n ≥ 100). Clampa CV ao teto teórico com média no centro (1/3).
     """
     target_mean = (V_MAX + V_MIN) / 2.0
     cv_max_centered = (V_MAX - V_MIN) / (V_MAX + V_MIN)  # 1/3
 
     cv_capped = False
-    vel_sampler = (
-        "beta4p"  # default robusto (também usado no caso quase-determinístico)
-    )
+    vel_sampler = "beta4p"
 
     if target_cv > cv_max_centered:
         logging.warning(
@@ -333,8 +325,8 @@ def generate_velocities(
     elif target_cv <= 0.29:
         alpha, beta = _beta_4p_from_mean_cv(target_mean, target_cv)
         x = rng.beta(alpha, beta, size=n)  # [0,1]
-        v = V_MIN + (V_MAX - V_MIN) * x  # [V_MIN, V_MAX]
-        v += target_mean - v.mean()  # realinha média uma vez
+        v = V_MIN + (V_MAX - V_MIN) * x
+        v += target_mean - v.mean()
         v = np.clip(v, V_MIN, V_MAX)
         vel_sampler = "beta4p"
     else:
@@ -355,7 +347,6 @@ def generate_velocities(
         v = np.clip(v, V_MIN, V_MAX)
         vel_sampler = "mixture"
 
-    # Auditoria (tolerância 0.02)
     if n >= 100:
         cv_emp = float(v.std() / (v.mean() + 1e-12))
         if abs(cv_emp - target_cv) > 0.02:
@@ -367,41 +358,30 @@ def generate_velocities(
                 n,
             )
 
-    ns = globals().get("_TELEMETRY")
-    if not isinstance(ns, SimpleNamespace):
-        ns = SimpleNamespace()
+    ns = _TELEMETRY if isinstance(_TELEMETRY, SimpleNamespace) else SimpleNamespace()
     ns.vel_sampler = vel_sampler
     ns.cv_capped = cv_capped
-    global _TELEMETRY
-    _TELEMETRY = ns
+    globals()["_TELEMETRY"] = ns
     return v
 
 
-# =========================
-# Modularidade (gate por memória)
-# =========================
-def _compute_modularity_greedy_if_small(
-    edges: np.ndarray, n_nodes: int
-) -> Optional[float]:
-    """
-    Calcula modularidade via greedy (CNM) **apenas** se o grafo for pequeno o bastante
-    para não estourar memória com NetworkX — limite efetivo: min(ABS, FRAC·M).
-    """
+# ----------------- Modularidade (gate por memória / opcional) -----------------
+
+
+def _compute_modularity_greedy_if_small(edges: np.ndarray, n_nodes: int) -> float | None:
+    """Calcula modularidade via CNM **apenas** se o grafo couber no limite prático."""
     m = int(edges.shape[0])
     M = n_nodes * (n_nodes - 1) // 2
     dynamic_limit = min(MOD_GREEDY_EDGE_LIMIT_ABS, int(MOD_GREEDY_EDGE_LIMIT_FRAC * M))
 
     if m > dynamic_limit:
-        logging.warning(
-            "Grafo grande (>%s arestas); modularidade pulada.", f"{dynamic_limit:,}"
-        )
+        logging.warning("Grafo grande (>%s arestas); modularidade pulada.", f"{dynamic_limit:,}")
         return None
 
     try:
-        import networkx as nx  # lazy import
-    except ImportError:
-        logging.warning("NetworkX ausente; modularidade pulada.")
-        return None
+        import networkx as nx  # lazy
+    except ImportError:  # pragma: no cover
+        raise RuntimeError("NetworkX não instalado para o shim de testes.") from None
 
     if _version_tuple(nx.__version__) < (2, 6, 0):
         logging.warning("NetworkX < 2.6; modularidade pulada.")
@@ -414,9 +394,9 @@ def _compute_modularity_greedy_if_small(
     return float(nx.community.modularity(G, comms))
 
 
-# =========================
-# Save helpers e wrappers p/ testes
-# =========================
+# ------------------------- Serialização / wrappers -------------------------
+
+
 def _save_instance_core(
     edges: np.ndarray,
     velocities: np.ndarray,
@@ -425,21 +405,13 @@ def _save_instance_core(
     schema: dict | None,
     params: dict,
 ) -> None:
-    """Serializa JSON (respeita a extensão informada: .json ou .json.gz)."""
+    """Serializa JSON (respeita a extensão: .json ou .json.gz)."""
     n = int(velocities.size)
     modularity = _compute_modularity_greedy_if_small(edges, n)
 
-    # Meta (telemetria leve) — não polui instance_metrics
-    meta = {}
-    if isinstance(globals().get("_TELEMETRY"), SimpleNamespace):
-        t = globals()["_TELEMETRY"].__dict__
-        meta = {
-            "tree_method": t.get("tree_method"),
-            "density_mode": t.get("density_mode"),
-            "vel_sampler": t.get("vel_sampler"),
-            "acceptance_last": float(t.get("acceptance_last", 0.0)),
-            "cv_capped": bool(t.get("cv_capped", False)),
-        }
+    # Loga telemetria (não entra no JSON para não quebrar schema)
+    if isinstance(_TELEMETRY, SimpleNamespace):
+        logging.info("telemetry: %s", _TELEMETRY.__dict__)
 
     instance = {
         "schema_version": "1.1",
@@ -448,9 +420,7 @@ def _save_instance_core(
             "nodes_requested": params["nodes_requested"],
             "nodes_final": n,
             "density_requested": params["density_requested"],
-            "density_final": float(
-                edges.shape[0] / (n * (n - 1) / 2) if n > 1 else 0.0
-            ),
+            "density_final": float(edges.shape[0] / (n * (n - 1) / 2) if n > 1 else 0.0),
             "cv_vel_requested": params["cv_vel_requested"],
             "cv_vel_final": float(velocities.std() / (velocities.mean() + 1e-12)),
             "modularity": modularity,
@@ -478,16 +448,16 @@ def _save_instance_core(
     else:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(instance, f, indent=2)
-    logging.info(f"Instância salva em {output_path}")
+    logging.info("Instância salva em %s", output_path)
 
 
 def build_graph(rng: np.random.Generator, num_nodes: int, density: float) -> Any:
-    """Shim p/ testes: materializa um nx.Graph **apenas** para n pequenos (uso em tests/)."""
+    """Materializa um nx.Graph (uso em testes; n pequenos)."""
     edges = build_edge_list(rng, num_nodes, density, verbose=False)
     try:
         import networkx as nx  # lazy
     except ImportError:  # pragma: no cover
-        raise RuntimeError("NetworkX não instalado para o shim de testes.")
+        raise RuntimeError("NetworkX não instalado para o shim de testes.") from None
     G = nx.Graph()
     G.add_nodes_from(range(num_nodes))
     G.add_edges_from(edges.tolist())
@@ -501,10 +471,7 @@ def save_instance(
     rng: np.random.Generator,
     epsilon: float,
 ) -> None:
-    """
-    Shim p/ testes: extrai arestas do grafo e delega para o core.
-    'cv_vel_requested' é preenchido com o CV observado (semântica do teste).
-    """
+    """Extrai arestas do grafo e delega para o core (conveniência p/ testes)."""
     n = graph.number_of_nodes()
     edges = np.array(list(graph.edges()), dtype=np.int64)
     edges = _canonicalize_and_sort_edges(edges)
@@ -512,9 +479,7 @@ def save_instance(
     schema = _load_schema()
     params = {
         "nodes_requested": n,
-        "density_requested": float(
-            (2 * graph.number_of_edges()) / (n * (n - 1)) if n > 1 else 0.0
-        ),
+        "density_requested": float((2 * graph.number_of_edges()) / (n * (n - 1)) if n > 1 else 0.0),
         "cv_vel_requested": float(velocities.std() / (velocities.mean() + 1e-12)),
         "seed": None,
         "epsilon": float(epsilon),
@@ -522,10 +487,11 @@ def save_instance(
     _save_instance_core(edges, velocities, output_path, rng, schema, params)
 
 
-# =========================
-# CLI
-# =========================
+# ---------------------------------- CLI ----------------------------------
+
+
 def main() -> None:
+    """Entrypoint do gerador (v6.1.0)."""
     parser = argparse.ArgumentParser(
         description=(
             "Gerador de Instâncias HPC (v6.1.0)\n"
