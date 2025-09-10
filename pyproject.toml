@@ -39,6 +39,7 @@ mkdocs-material = "^9.5.49"
 mkdocstrings = { version = "^0.30.0" }
 mkdocstrings-python = { version = "^1.8.2" }
 griffe = "^1.5.4"
+pre-commit = "^4.3.0"
 
 [tool.poetry.scripts]
 instance-generator = "generator.cli:main"
