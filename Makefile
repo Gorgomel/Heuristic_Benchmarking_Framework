@@ -20,3 +20,28 @@ cov:
 
 docs:
 	poetry run mkdocs build
+
+
+
+
+
+.PHONY: build sh test lint type docs
+
+build:
+	docker compose build
+
+sh:
+	docker compose run --rm dev bash
+
+test:
+	docker compose run --rm test
+
+lint:
+	docker compose run --rm dev bash -lc "ruff check . && black --check ."
+
+type:
+	docker compose run --rm dev bash -lc "mypy src"
+
+docs:
+	docker compose run --rm dev bash -lc "mkdocs build --strict"
+
