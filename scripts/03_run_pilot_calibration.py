@@ -5,13 +5,11 @@ from pathlib import Path
 
 import numpy as np
 
-# Adiciona o diretório 'src' ao path para importação
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from src.generator.cli import build_graph, generate_velocities
 from src.heuristics.greedy import run_greedy_heuristic
 
-# Parâmetros do Protocolo
 DELTA_V = 5.0
 
 
@@ -25,7 +23,6 @@ def run_calibration_scenario(nodes, density, cv_vel, seed):
     actual_nodes = graph.number_of_nodes()
     velocities = generate_velocities(rng, actual_nodes, cv_vel)
 
-    # Adiciona as velocidades como atributos do grafo para a heurística
     for i, node in enumerate(graph.nodes()):
         graph.nodes[node]["velocity"] = velocities[i]
 

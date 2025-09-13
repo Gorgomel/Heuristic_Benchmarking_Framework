@@ -1,0 +1,35 @@
+name: Solvers Nightly
+on:
+  schedule:
+    - cron: "0 3 * * *"   # todos os dias 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  smoke-solvers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python + Poetry
+        run: |
+          python -m pip install --upgrade pip pipx
+          pipx install poetry
+          poetry install -E metrics --no-interaction
+
+      - name: Run smoke tests (pytest smokes)
+        env:
+          HPC_SMOKE_OUTDIR: data/results_raw/solvers_smoke
+        run: |
+          make smoke-tests || true
+
+      - name: Report manifest.json + artifacts
+        if: always()
+        run: make smoke-report || true
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solvers-smoke
+          path: data/results_raw/solvers_smoke

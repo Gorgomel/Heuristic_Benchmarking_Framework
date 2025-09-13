@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/specs/jsonschema/solver_run.schema.v1.json",
+  "title": "Solver Run Manifest",
+  "type": "object",
+  "schema_version": "1.0.0",
+  "schema_path": "specs/jsonschema/solver_run.schema.v1.json",
+  "required": [
+    "timestamp",
+    "instance_id",
+    "algo",
+    "k",
+    "beta",
+    "seed",
+    "budget_time_ms",
+    "status",
+    "metrics",
+    "env",
+    "tools",
+    "paths"
+  ],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "instance_id": { "type": "string" },
+    "algo": { "type": "string", "enum": ["metis", "kahip"] },
+    "k": { "type": "integer", "minimum": 2 },
+    "beta": { "type": "number", "minimum": 0 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "budget_time_ms": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string", "enum": ["ok", "timeout", "error", "solver_failed", "not_found"] },
+    "returncode": { "type": ["integer", "null"] },
+    "elapsed_ms": { "type": "integer" },
+    "stdout": { "type": "string" },
+    "stderr": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "required": ["cutsize_best"],
+      "properties": {
+        "cutsize_best": { "type": ["integer", "null"], "minimum": 0 },
+        "n_nodes": { "type": ["integer", "null"], "minimum": 1 },
+        "balance_tolerance": { "type": ["number", "null"], "minimum": 0 },
+        "imbalance_raw": { "type": ["integer", "number", "null"] }
+      }
+    },
+    "env": {
+      "type": "object",
+      "required": ["python", "os", "cpu"],
+      "properties": {
+        "hostname": { "type": "string" },
+        "python": { "type": "string" },
+        "os": { "type": "string" },
+        "os_release": { "type": "string" },
+        "cpu": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "cores_logical": { "type": "integer" },
+            "cores_physical": { "type": ["integer", "null"] },
+            "freq_mhz": { "type": ["number", "null"] }
+          }
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "gpmetis": {
+          "type": "object",
+          "properties": {
+            "exists": { "type": "boolean" },
+            "version": { "type": "string" }
+          }
+        },
+        "kaffpa": {
+          "type": "object",
+          "properties": {
+            "exists": { "type": "boolean" },
+            "version": { "type": "string" }
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "required": ["workdir", "graph_path"],
+      "properties": {
+        "workdir": { "type": "string" },
+        "graph_path": { "type": "string" },
+        "part_path": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "additionalProperties": true
+}

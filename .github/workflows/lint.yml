@@ -1,37 +1,29 @@
-# Nome do Workflow
 name: Linting
 
-# Gatilhos: roda em cada push e em cada pull request para a branch main
 on:
   push:
-    branches: [ dev ] # Roda em cada push para a branch dev
+    branches: [ dev ]
   pull_request:
-    branches: [ main ] # Roda quando um PR é aberto/atualizado para a main
+    branches: [ main ]
 
-# Tarefas a serem executadas
 jobs:
   lint:
-    runs-on: ubuntu-latest # Usa a última versão do Ubuntu como ambiente
+    runs-on: ubuntu-latest
     steps:
-      # 1. Baixa o código do seu repositório para o ambiente de CI
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # 2. Configura o ambiente Python na versão correta
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. Instala o Poetry
       - name: Install Poetry
         uses: snok/install-poetry@v1
 
-      # 4. Instala as dependências do projeto (com cache para acelerar)
       - name: Install dependencies
         run: poetry install
 
-      # 5. Executa o Ruff para verificar o código
       - name: Run Ruff linter and formatter
         run: |
           poetry run ruff check .

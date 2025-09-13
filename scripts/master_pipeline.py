@@ -10,7 +10,6 @@ import yaml
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
-# Caminhos relativos à raiz do projeto
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSTANCE_MANIFEST_PATH = PROJECT_ROOT / "configs" / "instances_to_generate.yaml"
 SYNTHETIC_INSTANCES_DIR = PROJECT_ROOT / "data" / "instances" / "synthetic"

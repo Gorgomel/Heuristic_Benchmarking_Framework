@@ -1,179 +1,222 @@
-# MPP-Framework: Framework de Caracterização de Heurísticas
+# Heuristic Benchmarking Framework (HBF)
 
-Framework para a execução de experimentos e caracterização de performance multi-objetivo de meta-heurísticas aplicadas ao problema de clusterização de veículos autônomos.
+[![CI](https://github.com/Gorgomel/Heuristic_Benchmarking_Framework/actions/workflows/ci.yml/badge.svg)](https://github.com/Gorgomel/Heuristic_Benchmarking_Framework/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue)](https://gorgomel.github.io/Heuristic_Benchmarking_Framework/)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Este projeto implementa o protocolo de pesquisa `proto_v3.1.1` para validar a tese de que o desempenho de diferentes algoritmos é uma função das características da instância do problema.
+Framework para benchmarking de heurísticas de **particionamento de grafos** com integração a **METIS (`gpmetis`)** e **KaHIP (`kaffpa`)**.
+Inclui runner único, coleta de artefatos, manifesto JSON **v1** com schema, *smokes* determinísticos, *Makefile* de qualidade, **docs** (MkDocs) e **CI** (GitHub Actions).
 
-> 📌 Veja também: [CHANGELOG](./CHANGELOG.md)
+**Repositório:** https://github.com/Gorgomel/Heuristic_Benchmarking_Framework
 
----
-
-## 🚀 Estrutura do Repositório
-
-- **/docs**: Documentação formal (protocolo da pesquisa, relatórios técnicos).
-- **/specs**: “Contratos” de dados (JSON Schemas e limites).
-- **/src**: Código-fonte principal (`generator`, `heuristics`, `orchestrator`, etc.).
-- **/tests**: Suíte automatizada (`pytest`) garantindo corretude.
-- **/data**: Dados de entrada/saída. Instâncias em `data/instances/` são versionadas via **Git LFS**.
-- **/notebooks**: Jupyter Notebooks para análise exploratória.
-- **/scripts**: Utilitários para automação (execução remota, agregação, etc.).
+Autor: **Leonardo Brunno Sink Lopes** — <brunnosink2@gmail.com>
+Licença: **MIT**
 
 ---
 
-## 🛠️ Instalação e Setup
+## Sumário
+- [Instalação](#instalação)
+- [Exemplos rápidos](#exemplos-rápidos)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [Runner & Manifesto v1](#runner--manifesto-v1)
+- [Testes & Qualidade](#testes--qualidade)
+- [Documentação](#documentação)
+- [Roadmap](#roadmap)
+- [Agradecimentos & Terceiros](#agradecimentos--terceiros)
+- [Como citar](#como-citar)
+- [Licença](#licença)
 
-Requisitos: **Python 3.11+**, **Git e Git LFS**, **Poetry**
+---
 
-1) **Clonar o repositório**
+## Instalação
+
+### Requisitos
+- **Python 3.11+**
+- **Poetry** para gerenciar o ambiente
+- (Opcional) **gpmetis** (METIS) e **kaffpa** (KaHIP) no `PATH` para executar os solvers
+
+### Instalar dependências do projeto
 ```bash
-git clone https://github.com/Gorgomel/Performance_Predictive_Model_Framework.git
-cd Performance_Predictive_Model_Framework
-````
+poetry install -E metrics --no-interaction
+poetry run pre-commit install  # hooks (ruff/black etc.)
 
-2. **Instalar dependências**
+Instalar solvers (opções)
 
-```bash
-poetry install
-```
+Conda (recomendado, simples e cross-platform):
 
-3. **Configurar hooks de pré-commit**
+conda install -c conda-forge metis kahip
+# isso fornece gpmetis e kaffpa
 
-```bash
-poetry run pre-commit install
-```
+Ubuntu/Debian (APT):
 
----
+# METIS (gpmetis está no pacote metis-tools)
+sudo apt-get update
+sudo apt-get install -y metis-tools
 
-## ⚙️ Como Usar
+# KaHIP: disponível em versões mais novas do Ubuntu (kahip)
+# se houver:
+sudo apt-get install -y kahip
 
-### Gerar uma instância (CLI do gerador)
+# Caso seu release não tenha o pacote 'kahip', compile a partir do código-fonte:
+# https://github.com/KaHIP/KaHIP
+# (build padrão gera o binário 'kaffpa')
 
-O gerador principal está em `src/generator/cli.py`. Ele produz um JSON (ou JSON.gz) com:
+> Os testes smoke do projeto verificam a presença de gpmetis/kaffpa e pulam automaticamente se estiverem ausentes.
 
-* **nodes**: id, velocidade (`[8,16]`) e posição 2D (`[0,1000]`),
-* **edges**: arestas do grafo,
-* **instance\_metrics**: métricas (densidade final, CV final, modularidade opcional etc.).
 
-#### Como funciona (resumo técnico)
 
-* **Conectividade base**: árvore geradora uniforme (UST) via **Algoritmo de Wilson** em $K_n$ (loop-erased random walks).
-* **Complemento de arestas**: seleção por **índices lineares** do triângulo superior de $K_n$, com dispatcher:
-
-  * `constructive` para regimes **raros** (baixa densidade),
-  * `dense-fast` para regimes **densos** (pool maior e alta taxa de aceitação).
-* **Velocidades**:
-
-  * CV ≤ 0.29: **Beta 4-parâmetros** (moment matching), média recentrada e clip em $[8,16]$.
-  * CV > 0.29: **mistura simétrica** nos extremos (bimodal leve) + ruído + correção de escala.
-* **Validação**: saída **JSON-first** validada com **schema v1.1** em `specs/schema_input.json`.
-
-#### Limites do CV
-
-No suporte $[V_{\min},V_{\max}]=[8,16]$ com média no centro, o limite teórico é:
-
-$$
-\textbf{CV}_{\max} = \frac{V_{\max}-V_{\min}}{V_{\max}+V_{\min}} = \frac{16-8}{16+8} = \frac{1}{3} \approx 0.333\ldots
-$$
-
-Se `--cv-vel` exceder esse teto, o gerador **faz cap** em $1/3$ e emite **warning**.
-
-> Para CVs maiores, é necessário **ampliar o intervalo** de velocidades e/ou **desacoplar a média** (não suportado por padrão).
-
-#### Política de modularidade
-
-A modularidade por método **greedy (CNM)** do NetworkX é **pulsada** por política de memória quando o grafo é grande:
-
-$$
-m \;>\; \min\big(1{,}200{,}000,\; 0{,}30 \cdot M\big)\quad \text{onde } M = \frac{n(n-1)}{2}.
-$$
-
-Quando o limite é excedido, a chave `modularity` sai como **`null`** por design (evita picos de RSS).
-
-#### Comportamento de saída
-
-* Se o caminho terminar com **`.json.gz`**, grava **Gzip texto**.
-* Se terminar com **`.json`**, grava **JSON plano**.
-* O caminho informado é respeitado **sem alterar a extensão**.
 
 ---
 
-### Exemplos de uso (reprodutíveis)
+Exemplos rápidos
 
-> Dica: use `--verbose` apenas para debug (logs reduzidos melhoram throughput).
+# Qualidade local (lint + type + cobertura)
+make qa
 
-```bash
-# Regime ralo saudável (10k nós, p=0.00025)
-poetry run python -m src.generator.cli \
-  --nodes 10000 --density 0.00025 --cv-vel 0.25 \
-  --epsilon 50 --seed 123 \
-  --output data/instances/synthetic/wilson_tree_10k.json.gz
+# Smokes (pytest) com artefatos e manifest.json
+make smoke-tests
+make smoke-report
 
-# Denso médio (3k nós, p=0.50) – modularidade pulada por política de memória
-poetry run python -m src.generator.cli \
-  --nodes 3000 --density 0.50 --cv-vel 0.25 \
-  --epsilon 50 --seed 1 \
-  --output data/instances/synthetic/mod_null_n3000_p50.json.gz
+# Runner via CLI (gera JSON simples)
+make smoke-cli-metis
+make smoke-cli-kahip
 
-# Denso médio (3.5k nós, p=0.40) – modularidade pulada
-poetry run python -m src.generator.cli \
-  --nodes 3500 --density 0.40 --cv-vel 0.25 \
-  --epsilon 50 --seed 2 \
-  --output data/instances/synthetic/mod_null_n3500_p40.json.gz
+# Manifesto v1 a partir do JSON do runner + validação
+make manifest-v1-metis
+make validate-v1-all
 
-# Denso (2k nós, p=0.50) – modularidade pulada (limite fracionário)
-poetry run python -m src.generator.cli \
-  --nodes 2000 --density 0.50 --cv-vel 0.25 \
-  --epsilon 50 --seed 42 \
-  --output data/instances/synthetic/n2000_p50.json.gz
+# Agregar manifests em CSV + comparação estatística A vs B (Wilcoxon + bootstrap)
+make aggregate-manifests
+make stats-compare
 
-# CV acima do teto (4k nós, p=0.20, cv-vel=0.50) – será capado em ~0.333 com warning
-poetry run python -m src.generator.cli \
-  --nodes 4000 --density 0.20 --cv-vel 0.50 \
-  --epsilon 50 --seed 9 \
-  --output data/instances/synthetic/cv_high.json.gz
-```
-
-#### Amostra de performance (máquina do autor)
-
-| Caso                             | Tempo (aprox.) | Pico RSS (aprox.) | Observações                            |
-| -------------------------------- | -------------- | ----------------- | -------------------------------------- |
-| 10k, p=0.00025                   | \~3.1 s        | \~97 MB           | Ralo saudável                          |
-| 3k, p=0.50                       | \~41–42 s      | \~530 MB          | Modularidade pulada (gate)             |
-| 3.5k, p=0.40                     | \~43 s         | \~580 MB          | Modularidade pulada (gate)             |
-| 2k, p=0.50                       | \~19 s         | \~274 MB          | Modularidade pulada (gate fracionário) |
-| 4k, p=0.20, cv-vel=0.50 (capado) | \~2–3 s        | \~?? MB           | CV capado em \~0.333 + warning         |
-
-> Valores variam por hardware/SO; servem como referência de ordem de grandeza.
 
 ---
 
-### Executar os testes
+Estrutura do projeto
 
-```bash
-poetry run pytest
-```
+src/
+  hpc_framework/
+    runner.py                 # orquestra 1 run e grava JSON simples
+    solvers/
+      common.py               # utilidades (.graph, exec, parsing…)
+      metis.py                # wrapper gpmetis
+      kahip.py                # wrapper kaffpa
+scripts/
+  pack_manifest_v1.py         # runner.json -> manifesto v1
+  validate_manifest_v1.py     # valida contra JSON Schema
+  aggregate_manifests.py      # glob *.v1.json -> CSV
+  stats_compare.py            # Wilcoxon + bootstrap (mediana)
+specs/
+  jsonschema/
+    solver_run.schema.v1.json # schema “congelado” (draft-07)
+docs/
+  mkdocs.yml + páginas        # documentação (Material for MkDocs)
+tests/
+  ...                         # unit, smokes, schema, runner, solvers
+Makefile
 
-### Executar um experimento remoto
-
-*(Requer configuração prévia da máquina de execução conforme o protocolo.)*
-
-```bash
-poetry run python src/orchestrator/ssh_executor.py --config configs/meu_experimento.yaml
-```
 
 ---
 
-## 📜 Protocolo Experimental
+Runner & Manifesto v1
 
-A metodologia completa, objetivos e métricas estão em
-`docs/protocol/proto_v3.1.1.md`.
+1. Runner (hpc_framework.runner.run / CLI hpc-framework):
 
-Para decisões de arquitetura, veja `docs/00_architectural_overview.md`.
+Exporta .graph, chama gpmetis ou kaffpa, mede tempo e coleta stdout/stderr.
+
+Salva JSON “simples” (status, caminhos, cutsize_best, etc.).
+
+
+
+2. Manifesto v1 (scripts/pack_manifest_v1.py):
+
+Normaliza metadados, métricas (metrics.*), ambiente (env.*) e ferramentas (tools.*).
+
+Validação por JSON Schema: specs/jsonschema/solver_run.schema.v1.json (draft-07).
+
+
+
+
 
 ---
 
-## 📄 Licença
+Testes & Qualidade
 
-Este projeto é licenciado sob a licença MIT.
+Lint/Format: ruff, black, interrogate
 
-```
+Tipos: mypy
+
+Testes: pytest (+ markers smoke)
+
+Cobertura: pytest-cov (gera coverage.xml)
+
+Makefile: fmt, lint, type, test, cov, qa, smoke-*, manifest-*, validate-*
+
+
+make qa
+make smoke-tests
+
+
+---
+
+Documentação
+
+MkDocs Material (make docs) com páginas de API e seção de Testing/CI.
+
+GitHub Pages: a pipeline de CI publica automaticamente em
+https://gorgomel.github.io/Heuristic_Benchmarking_Framework/.
+
+
+Desenvolvimento local:
+
+make serve   # http://127.0.0.1:8000
+
+
+---
+
+Roadmap
+
+🔜 Dashboards (Parquet → plots interativos).
+
+🔜 Casos de teste adicionais (robustez e escalabilidade).
+
+🔜 Suporte a novos solvers / formatos de instância.
+
+🔜 Empacotamento PyPI.
+
+
+
+---
+
+Agradecimentos & Terceiros
+
+METIS (gpmetis) — Karypis Lab.
+
+KaHIP (kaffpa) — Karlsruhe High Quality Partitioning.
+
+mkdocs-material, mkdocstrings, ruff, black, pytest, mypy, numpy/pandas/scipy, pre-commit.
+
+
+> Este projeto não inclui esses binários; apenas integra com eles quando presentes no sistema.
+
+
+
+
+---
+
+Como citar
+
+Se usar este framework em trabalhos acadêmicos, cite como:
+
+L. B. S. Lopes. Heuristic Benchmarking Framework (HBF).
+GitHub: https://github.com/Gorgomel/Heuristic_Benchmarking_Framework
+
+(Se preferir, posso fornecer um CITATION.cff.)
+
+
+---
+
+Licença
+
+Distribuído sob a licença MIT. Consulte LICENSE.

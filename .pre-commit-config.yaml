@@ -1,6 +1,9 @@
 # Arquivo de configuração para o pre-commit
 # Define os hooks que rodam automaticamente antes de cada commit
 
+default_install_hook_types: [pre-commit]
+default_stages: [commit]
+
 repos:
   # Hooks padrão para manutenção de arquivos
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -9,18 +12,50 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-json
       - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
 
-  # Hook para formatação de código automática com Black
+  # Black (formatação)
   - repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
       - id: black
 
-  # Hook para linting e formatação com Ruff (extremamente rápido)
+  # Ruff (lint + format)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix] # Tenta corrigir erros automaticamente
+        args: [--fix, --exit-non-zero-on-fix]  # Corrige automaticamente e falha se houver correções
       - id: ruff-format
+
+  # Hooks locais executados via Poetry
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (src/)
+        entry: bash -lc 'poetry run mypy src'
+        language: system
+        pass_filenames: false
+
+      - id: interrogate
+        name: interrogate (docstrings)
+        entry: bash -lc 'poetry run interrogate -v'
+        language: system
+        pass_filenames: false
+
+      - id: pytest-smoke
+        name: pytest -m smoke
+        entry: bash -lc 'poetry run pytest -q -m smoke'
+        language: system
+        pass_filenames: false
+
+      - id: schema-validate-v1
+        name: validate manifest v1 (arquivos *.v1.json staged)
+        language: system
+        entry: poetry run python scripts/validate_manifest_v1.py --schema specs/jsonschema/solver_run.schema.v1.json --in
+        pass_filenames: true
+        files: '\.v1\.json$'
+        exclude: ^specs/jsonschema/solver_run\.schema\.v1\.json$

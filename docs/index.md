@@ -1,10 +1,13 @@
-# MPP — Metodologia, Pipelines e Particionamento
+# HPC Framework
 
-Este site reúne documentação técnica do projeto: visão arquitetural, decisões de projeto (ADR),
-relatórios de gerador/execução experimental, protocolo e API (gerada a partir de docstrings).
+Bem-vindo à documentação do *HPC Framework*. Aqui você encontra:
 
-- **Como navegar**: use o menu à esquerda para Visão Geral, Decisões, Relatórios e Protocolo.
-- **API**: as páginas em “API” são geradas automaticamente (mkdocstrings) a partir do código em `src/`.
-- **Reprodutibilidade**: links para o protocolo e para os relatórios guiam a execução ponta-a-ponta.
+- **API**: interfaces de linha de comando e módulos principais.
+- **Testing**: estratégia, casos de teste, rastreabilidade e CI.
+- **Metodologia**: como executar *smokes*, empacotar manifests v1 e validar schemas.
 
-> Dica: mantenha docstrings no estilo Google (ou NumPy) e `type hints` para melhorar as páginas de API.
+!!! tip "Como construir a documentação"
+    ```bash
+    make docs       # build estrito
+    make serve      # servidor local em http://127.0.0.1:8000
+    ```

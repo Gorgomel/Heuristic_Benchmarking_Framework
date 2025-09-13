@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.8.3
 
 # Copia manifestos primeiro (melhor cache)
-COPY pyproject.toml poetry.lock ./ 
+COPY pyproject.toml poetry.lock ./
 
 # Por padrão, sem venv dentro do container
 RUN poetry config virtualenvs.create false

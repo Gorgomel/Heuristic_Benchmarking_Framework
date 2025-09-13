@@ -5,26 +5,26 @@ build-backend = "poetry.core.masonry.api"
 # =========================== Metadados (PEP 621) ===========================
 [project]
 name = "hpc-framework"
-version = "6.1.0"
+version = "0.8.0"
 description = "Framework for Heuristic Performance Characterization"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 license = { text = "MIT" }
 authors = [{ name = "Brunno Sink", email = "brunnosink2@gmail.com" }]
 
-# Dependências de RUNTIME (array de strings, PEP 621)
+# Dependências de RUNTIME (PEP 621)
 dependencies = [
   "numpy>=2.3.1,<3.0.0",
   "pandas>=2.2,<3.0",
   "scipy>=1.16.0,<2.0.0",
   "jsonschema>=4.25.0,<5.0.0",
   "fabric>=3.2.2,<4.0.0",
+  "networkx>=3.2,<4.0",           # <- AGORA É DEP PRINCIPAL (testes precisam)
 ]
 
 # Extras/optionals (instale com: poetry install -E metrics)
 [project.optional-dependencies]
 metrics = [
-  "networkx>=3.0",
   "tqdm>=4.67.1,<5.0.0",
 ]
 
@@ -56,13 +56,23 @@ mkdocs-material     = "^9.5.49"
 mkdocstrings        = { version = "^0.30.0" }
 mkdocstrings-python = { version = "^1.8.2" }
 griffe              = "^1.5.4"
-pre-commit          = "^4.3.0"
+pre-commit          = "^3.8.0"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6.1"
+mkdocs-material = "^9.6.19"
+mkdocstrings = { extras = ["python"], version = "^0.30.0" }
+mkdocs-autorefs = "^1.4.3"
+mkdocs-minify-plugin = "^0.8.0"
 
 # ================================ Ruff =====================================
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["dist", "build", ".venv", "env"]
+extend-exclude = [
+  "dist", "build", ".venv", "env",
+  "KaHIP/misc/pymodule/callkahipfrompython.py",
+]
 
 [tool.ruff.lint]
 select = ["E","F","I","D","B","UP","C4","SIM"]
@@ -77,6 +87,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D100","D101","D102","D103","D104"]
 "src/orchestrator/**.py" = ["D100"]
+"tests/test_results_schema.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -105,6 +116,9 @@ pretty = true
 addopts = "-q"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+  "smoke: testes rápidos que exercitam integração com solvers externos e persistem artefatos mínimos"
+]
 
 # =============================== coverage ==================================
 [tool.coverage.run]
