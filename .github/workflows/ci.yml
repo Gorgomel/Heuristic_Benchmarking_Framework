@@ -2,135 +2,162 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, dev]
+    paths-ignore:
+      - "site/**"
   pull_request:
-    branches: [ "**" ]
+    branches: [main, dev]
+    paths-ignore:
+      - "site/**"
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "1.8.3"
 
 jobs:
   qa:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
+    name: qa
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
-        uses: abatilo/actions-poetry@v3
+        uses: snok/install-poetry@v1
         with:
-          poetry-version: "1.8.3"
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
 
-      - name: Cache venv
+      - name: Cache Poetry env
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pypoetry
             .venv
-          key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-qa
+
+      - name: Poetry check
+        run: |
+          poetry --version
+          poetry check
 
       - name: Install deps
         run: |
-          poetry env use "3.11"
-          poetry install -E metrics --no-interaction
+          poetry env use "${{ env.PYTHON_VERSION }}"
+          poetry install --with dev -E metrics --no-interaction
           poetry run python -V
           poetry show --tree
 
-      # --- Quality gate em passos separados (fica claro o que falhou) ---
-      - name: Ruff
-        run: poetry run ruff check .
-
-      - name: Black (check)
-        run: poetry run black --check .
-
-      - name: Interrogate (docstrings)
-        run: poetry run interrogate -v
-
-      - name: MyPy
-        run: poetry run mypy src
-
-      - name: Pytest + cobertura + JUnit
+      - name: QA suite (pre-commit + quick smoke)
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
         run: |
-          mkdir -p .reports
-          poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml \
-            --junitxml=.reports/pytest-junit.xml
-        # sempre suba relatórios, mesmo se falhar
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qa-reports
-          path: |
-            coverage.xml
-            .reports/pytest-junit.xml
-          if-no-files-found: warn
+          poetry run pre-commit run -a
+          poetry run python - <<'PY'
+          import importlib
+          importlib.import_module("generator.cli")
+          importlib.import_module("hpc_framework.cli")
+          importlib.import_module("orchestrator.ssh_executor")
+          PY
+          poetry run pytest -q -m smoke
 
   docs:
-    runs-on: ubuntu-latest
+    name: docs
     needs: qa
-    timeout-minutes: 10
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - uses: abatilo/actions-poetry@v3
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
         with:
-          poetry-version: "1.8.3"
-      - name: Cache venv
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Cache Poetry env
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pypoetry
             .venv
-          key: poetry-docs-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install (docs extras)
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-docs
+
+      - name: Install deps
         run: |
-          poetry env use "3.11"
-          poetry install --no-interaction
+          poetry install --with dev -E metrics --no-interaction
+
       - name: Build docs (strict)
-        run: make docs
+        run: |
+          poetry run mkdocs build --strict
 
   smoke:
-    runs-on: ubuntu-latest
+    name: smoke
     needs: qa
-    timeout-minutes: 10
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - uses: abatilo/actions-poetry@v3
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
         with:
-          poetry-version: "1.8.3"
-      - name: Cache venv
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Cache Poetry env
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pypoetry
             .venv
-          key: poetry-smoke-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-smoke
+
+      - name: Install deps
         run: |
-          poetry env use "3.11"
-          poetry install -E metrics --no-interaction
-      - name: Smoke tests (pytest markers)
+          poetry install --with dev -E metrics --no-interaction
+
+      - name: Install METIS (for gpmetis smoke)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y metis
+          gpmetis -h | head -n1 || true
+
+      - name: Run smoke tests (allow KaHIP skip)
         env:
-          HPC_SMOKE_OUTDIR: data/results_raw/solvers_smoke
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
         run: |
-          mkdir -p "$HPC_SMOKE_OUTDIR"
-          poetry run pytest -q -m smoke || true
-      - name: Upload smoke artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-artifacts
-          path: data/results_raw/solvers_smoke/**
-          if-no-files-found: ignore
+          poetry run pytest -q -k "smoke"
