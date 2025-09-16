@@ -85,3 +85,6 @@ data/system_report.txt
 MPP_context.zip
 
 KaHIP/
+
+docs/*.bak/
+docs/*_bak/

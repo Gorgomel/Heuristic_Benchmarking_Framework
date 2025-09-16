@@ -20,6 +20,7 @@ dependencies = [
   "jsonschema>=4.25.0,<5.0.0",
   "fabric>=3.2.2,<4.0.0",
   "networkx>=3.2,<4.0",           # <- AGORA É DEP PRINCIPAL (testes precisam)
+  "tqdm (>=4.66,<5.0)",
 ]
 
 # Extras/optionals (instale com: poetry install -E metrics)

@@ -7,27 +7,11 @@ import networkx as nx
 import numpy as np
 
 try:
-    from tqdm import tqdm
-except Exception:  # pragma: no cover
+    from tqdm import tqdm  # barra de progresso real, se instalado
+except Exception:  # fallback: no-op, só itera
 
-    class _TqdmNoop:
-        def __init__(self, *_, **__):
-            self.n = 0
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def update(self, n: int = 0) -> None:
-            self.n += int(n)
-
-        def close(self) -> None:
-            pass
-
-    # def tqdm(*_args, **_kwargs) -> _TqdmNoop:  # type: ignore[misc]
-    #    return _TqdmNoop()
+    def tqdm(x, **kwargs):
+        return x
 
 
 def _get_velocity(G: nx.Graph, u) -> float:
