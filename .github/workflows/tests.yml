@@ -1,28 +1,80 @@
 name: Tests
 
 on:
-  push:
-    branches: [ dev ]
   pull_request:
-    branches: [ main ]
+    branches: [main, dev]
+    paths-ignore:
+      - "site/**"
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - "site/**"
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "1.8.3"
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - name: Check out repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Cache Poetry env
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-tests
+
+      - name: Poetry check
+        run: |
+          poetry --version
+          poetry check
 
       - name: Install dependencies
-        run: poetry install
+        run: |
+          poetry env use "${{ env.PYTHON_VERSION }}"
+          poetry install --with dev -E metrics --no-interaction
+          poetry run python -V
 
-      - name: Run Pytest
-        run: poetry run pytest
+      - name: Run unit tests
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+        run: |
+          # evita qualquer resquício de uso de "-4" ou flags não suportadas
+          poetry run pytest -q
+
+      # (opcional) ajuda no debug quando falha
+      - name: If failed, show last logs
+        if: failure()
+        run: |
+          echo "::group::pip freeze"
+          poetry run python -m pip freeze || true
+          echo "::endgroup::"
+          echo "::group::tree repo"
+          ls -la
+          echo "::endgroup::"
