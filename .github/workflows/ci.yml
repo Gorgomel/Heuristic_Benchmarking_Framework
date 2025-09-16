@@ -64,6 +64,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y metis
+          command -v gpmetis || true
           gpmetis -h | head -n1 || true
 
       - name: QA suite (pre-commit + quick smoke)
@@ -71,6 +72,8 @@ jobs:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
+          # pula hooks pesados que executem pytest/validação de manifest — rodaremos logo abaixo
+          SKIP: pytest,pytest -m smoke,validate manifest v1
         run: |
           poetry run pre-commit run -a
           poetry run python - <<'PY'
@@ -154,6 +157,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y metis
+          command -v gpmetis || true
           gpmetis -h | head -n1 || true
 
       - name: Run smoke tests (allow KaHIP skip)
