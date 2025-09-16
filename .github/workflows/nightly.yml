@@ -1,8 +1,9 @@
+---
 name: Nightly
 
-on:
+'on':
   schedule:
-    - cron: "15 3 * * *"   # todos os dias ~03:15 UTC
+    - cron: '15 03 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -40,7 +41,7 @@ jobs:
             .venv
             ~/.cache/pip
             ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-nightly
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-nightly # yamllint disable-line rule:line-length
 
       - name: Install deps
         run: |
@@ -53,14 +54,12 @@ jobs:
           sudo apt-get install -y metis
           gpmetis -h | head -n1 || true
 
-      - name: Run full test suite (quiet)
+      - name: Full test suite
         env:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
-        run: |
-          poetry run pytest -q
+        run: poetry run pytest -q
 
       - name: Build docs (non-strict)
-        run: |
-          poetry run mkdocs build
+        run: poetry run mkdocs build

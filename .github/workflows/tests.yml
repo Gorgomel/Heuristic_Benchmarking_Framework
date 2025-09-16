@@ -1,14 +1,13 @@
+---
 name: Tests
 
-on:
+'on':
   pull_request:
     branches: [main, dev]
-    paths-ignore:
-      - site/**
+    paths-ignore: [site/**]
   push:
     branches: [main, dev]
-    paths-ignore:
-      - site/**
+    paths-ignore: [site/**]
   workflow_dispatch:
 
 concurrency:
@@ -46,7 +45,7 @@ jobs:
             .venv
             ~/.cache/pip
             ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-tests
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-tests # yamllint disable-line rule:line-length
 
       - name: Poetry check
         run: |
@@ -70,8 +69,7 @@ jobs:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
-        run: |
-          poetry run pytest -q
+        run: poetry run pytest -q
 
       - name: If failed, show debug info
         if: failure()

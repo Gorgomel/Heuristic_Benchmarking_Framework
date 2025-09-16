@@ -1,14 +1,13 @@
+---
 name: CI
 
-on:
+'on':
   push:
     branches: [main, dev]
-    paths-ignore:
-      - site/**
+    paths-ignore: [site/**]
   pull_request:
     branches: [main, dev]
-    paths-ignore:
-      - site/**
+    paths-ignore: [site/**]
   workflow_dispatch:
 
 concurrency:
@@ -47,7 +46,7 @@ jobs:
             .venv
             ~/.cache/pip
             ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-qa
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-qa # yamllint disable-line rule:line-length
 
       - name: Poetry check
         run: |
@@ -60,6 +59,12 @@ jobs:
           poetry install --with dev -E metrics --no-interaction
           poetry run python -V
           poetry show --tree
+
+      - name: Install METIS (for smoke tests that call gpmetis)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y metis
+          gpmetis -h | head -n1 || true
 
       - name: QA suite (pre-commit + quick smoke)
         env:
@@ -104,15 +109,13 @@ jobs:
             .venv
             ~/.cache/pip
             ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-docs
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-docs # yamllint disable-line rule:line-length
 
       - name: Install deps
-        run: |
-          poetry install --with dev -E metrics --no-interaction
+        run: poetry install --with dev -E metrics --no-interaction
 
       - name: Build docs (strict)
-        run: |
-          poetry run mkdocs build --strict
+        run: poetry run mkdocs build --strict
 
   smoke:
     name: smoke
@@ -142,11 +145,10 @@ jobs:
             .venv
             ~/.cache/pip
             ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-smoke
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-smoke # yamllint disable-line rule:line-length
 
       - name: Install deps
-        run: |
-          poetry install --with dev -E metrics --no-interaction
+        run: poetry install --with dev -E metrics --no-interaction
 
       - name: Install METIS (for gpmetis smoke)
         run: |
@@ -159,5 +161,4 @@ jobs:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
-        run: |
-          poetry run pytest -q -k "smoke"
+        run: poetry run pytest -q -k "smoke"
