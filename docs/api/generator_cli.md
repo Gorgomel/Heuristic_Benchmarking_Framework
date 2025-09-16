@@ -1,2 +1,2 @@
 # `src/generator/cli.py`
-::: src.generator.cli
+::: generator.cli
