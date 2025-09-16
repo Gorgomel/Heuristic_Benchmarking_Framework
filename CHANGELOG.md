@@ -3,7 +3,7 @@
 > Todas as mudanças notáveis neste projeto serão documentadas aqui.
 > Versão atual: **v0.8.0** — 2025-09-12
 
-## v6.2.0 — 2025-09-12
+## v0.8.0 — 2025-09-12
 
 ### Destaques
 

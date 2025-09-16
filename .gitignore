@@ -76,3 +76,12 @@ __pypackages__/
 artifacts/snapshots/*.tar.gz
 
 site/
+
+# builds
+site/
+# relatórios locais
+data/system_report.txt
+# pacotes/arquivos temporários
+MPP_context.zip
+
+KaHIP/

@@ -1,2 +1,2 @@
 # `src/heuristics/greedy.py`
-::: heuristics.greedy
+::: src.heuristics.greedy

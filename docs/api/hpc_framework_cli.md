@@ -1,2 +1,2 @@
 # `src/hpc_framework/cli.py`
-::: hpc_framework.cli
+::: src.hpc_framework.cli
