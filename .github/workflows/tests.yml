@@ -59,6 +59,12 @@ jobs:
           poetry install --with dev -E metrics --no-interaction
           poetry run python -V
 
+      - name: Install METIS (gpmetis)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y metis
+          command -v gpmetis && gpmetis -h | head -n1
+
       - name: Run unit tests
         env:
           OMP_NUM_THREADS: "1"

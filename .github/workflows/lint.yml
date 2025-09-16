@@ -1,30 +1,60 @@
 name: Linting
 
 on:
-  push:
-    branches: [ dev ]
   pull_request:
-    branches: [ main ]
+    branches: [main, dev]
+    paths-ignore:
+      - site/**
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - site/**
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "1.8.3"
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - name: Check out repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
 
-      - name: Install dependencies
-        run: poetry install
+      - name: Cache Poetry env
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/pip
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}-lint
 
-      - name: Run Ruff linter and formatter
+      - name: Install deps (only tools are enough)
         run: |
-          poetry run ruff check .
-          poetry run ruff format --check .
+          poetry install --with dev --no-interaction
+          poetry run python -V
+
+      - name: Ruff
+        run: poetry run ruff check .
+
+      - name: Black (check)
+        run: poetry run black --check .
