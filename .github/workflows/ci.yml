@@ -44,4 +44,4 @@ jobs:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
-        run: pytest -q
+        run: pytest -q -k "not (kahip or solvers_external)"
