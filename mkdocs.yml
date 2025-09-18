@@ -6,21 +6,20 @@ theme:
 
 nav:
   - Home: index.md
+  - Protocol: protocol/proto_v3.1.1.md
   - API:
-      - generator/cli: api/generator_cli.md
-      - heuristics/greedy: api/heuristics_greedy.md
-      - hpc_framework/cli: api/hpc_framework_cli.md
-      - orchestrator/ssh_executor: api/orchestrator_ssh_executor.md
-  - Testing:
-      - Overview: testing/TESTING.md
-      - CI: testing/CI.md
-      - Traceability: testing/TRACEABILITY.md
-      - Cases:
-          - TC_001_modularity_gate: testing/testcases/TC_001_modularity_gate.md
-          - TC_002_cv_ceiling: testing/testcases/TC_002_cv_ceiling.md
-          - TC_003_schema_freeze: testing/testcases/TC_003_schema_freeze.md
-          - TC_004_cli_examples: testing/testcases/TC_004_cli_examples.md
-          - TC_005_perf_smoke: testing/testcases/TC_005_perf_smoke.md
+    - Generator CLI: api/generator_cli.md
+    - Heuristics (Greedy): api/heuristics_greedy.md
+    - Framework CLI: api/hpc_framework_cli.md
+    - SSH Orchestrator: api/orchestrator_ssh_executor.md
+  - Reports:
+    - Instance Generator: reports/01_instance_generator.md
+    - Experimental Campaign: reports/02_experimental_campaign.md
+  - Decisions:
+    - 001 Language Choice: decisions/001_choice_heuristic_language.md
+    - 003 Methodology: decisions/003_metodologia_gerador_e_analise.md
+    - 004 Testing & CI: decisions/004_testing_and_ci.md
+
 
 plugins:
   - search
@@ -28,7 +27,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src]       # <- em vez de setup_commands
+          paths: [src]
           options:
             docstring_style: google
             docstring_section_style: table

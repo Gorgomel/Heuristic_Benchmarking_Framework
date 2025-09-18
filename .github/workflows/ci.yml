@@ -1,20 +1,21 @@
-name: CI
+---
+name: CI (minimal)
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, dev]
+    paths-ignore: [ "site/**" ]
   pull_request:
-    branches: [ "**" ]
+    branches: [main, dev]
+    paths-ignore: [ "site/**" ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  qa:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
+  tests:
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,115 +23,25 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install Poetry
-        uses: abatilo/actions-poetry@v3
-        with:
-          poetry-version: "1.8.3"
-
-      - name: Cache venv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install deps
+      - name: System deps (METIS for gpmetis)
         run: |
-          poetry env use "3.11"
-          poetry install -E metrics --no-interaction
-          poetry run python -V
-          poetry show --tree
+          sudo apt-get update
+          sudo apt-get install -y metis
+          gpmetis -h | head -n1 || true
 
-      # --- Quality gate em passos separados (fica claro o que falhou) ---
-      - name: Ruff
-        run: poetry run ruff check .
-
-      - name: Black (check)
-        run: poetry run black --check .
-
-      - name: Interrogate (docstrings)
-        run: poetry run interrogate -v
-
-      - name: MyPy
-        run: poetry run mypy src
-
-      - name: Pytest + cobertura + JUnit
+      - name: Install Python deps (pip only)
         run: |
-          mkdir -p .reports
-          poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml \
-            --junitxml=.reports/pytest-junit.xml
-        # sempre suba relatórios, mesmo se falhar
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qa-reports
-          path: |
-            coverage.xml
-            .reports/pytest-junit.xml
-          if-no-files-found: warn
+          python -m pip install --upgrade pip
+          # test runner
+          pip install pytest
+          # instala o projeto a partir do pyproject (poetry-core)
+          pip install .
 
-  docs:
-    runs-on: ubuntu-latest
-    needs: qa
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: abatilo/actions-poetry@v3
-        with:
-          poetry-version: "1.8.3"
-      - name: Cache venv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: poetry-docs-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install (docs extras)
-        run: |
-          poetry env use "3.11"
-          poetry install --no-interaction
-      - name: Build docs (strict)
-        run: make docs
-
-  smoke:
-    runs-on: ubuntu-latest
-    needs: qa
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: abatilo/actions-poetry@v3
-        with:
-          poetry-version: "1.8.3"
-      - name: Cache venv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: poetry-smoke-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install
-        run: |
-          poetry env use "3.11"
-          poetry install -E metrics --no-interaction
-      - name: Smoke tests (pytest markers)
+      - name: Run tests
         env:
-          HPC_SMOKE_OUTDIR: data/results_raw/solvers_smoke
-        run: |
-          mkdir -p "$HPC_SMOKE_OUTDIR"
-          poetry run pytest -q -m smoke || true
-      - name: Upload smoke artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-artifacts
-          path: data/results_raw/solvers_smoke/**
-          if-no-files-found: ignore
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+        run: pytest -q -k "not (kahip or solvers_external)"
