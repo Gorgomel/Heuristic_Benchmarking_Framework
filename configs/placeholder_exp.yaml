@@ -1,0 +1,48 @@
+---
+schema: "forja-exp-v1"
+experiment_id: "PLACEHOLDER"
+description: "Molde de plano experimental"
+
+rng:
+  seeds: [42]
+
+env:
+  threads: { omp: 1, blas: 1 }
+  require_bins: []
+  allow_missing_bins: []
+
+instances:
+  base_dir: "data/instances/synthetic"
+  include: []
+  manifest_out: "data/results_raw/manifest_index.csv"
+  fields: ["filename", "n"]
+
+solvers:
+  greedy:
+    enabled: true
+    params: { delta_v: 0.1 }
+    budget: { type: "time", seconds: 5 }
+
+  metis:
+    enabled: false
+    k: 8
+    budget: { type: "time", seconds: 5 }
+
+  kahip:
+    enabled: false
+    skip_if_missing: true
+    k: 8
+    imbalance: 0.03
+    preset: "fast"
+    budget: { type: "time", seconds: 5 }
+
+protocol:
+  repeats: 1
+  randomize_instance_order: false
+  write_partition_files: false
+
+output:
+  raw_dir: "data/results_raw"
+  tables_dir: "data/results_parquet"
+  log_level: "INFO"
+  capture: { git_sha: true, hostname: true }

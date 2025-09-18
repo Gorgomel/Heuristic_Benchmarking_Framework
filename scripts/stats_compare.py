@@ -161,11 +161,11 @@ def main():
         lines.append("")
     lines.append(f"- Diferença média (B − A): {mean_diff:.3f}")
     lines.append(
-        f"- Mediana(Δ cut): {median_diff:.3f}  (IC{int((1-args.alpha)*100)}%: {lo_med:.3f}, {hi_med:.3f})"
+        f"- Mediana(Δ cut): {median_diff:.3f}  (IC{int((1 - args.alpha) * 100)}%: {lo_med:.3f}, {hi_med:.3f})"
     )
     lines.append(f"- {test_line}")
     lines.append(
-        f"- Win-rate B (<0): {win_b*100:.1f}% | Win-rate A (>0): {win_a*100:.1f}% | Empates: {ties*100:.1f}%"
+        f"- Win-rate B (<0): {win_b * 100:.1f}% | Win-rate A (>0): {win_a * 100:.1f}% | Empates: {ties * 100:.1f}%"
     )
     lines.append("")
     concl = "indefinido"

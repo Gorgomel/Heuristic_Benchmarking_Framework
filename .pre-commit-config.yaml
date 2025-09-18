@@ -1,3 +1,4 @@
+---
 # Arquivo de configuração para o pre-commit
 # Define os hooks que rodam automaticamente antes de cada commit
 
@@ -7,25 +8,27 @@ default_stages: [commit]
 repos:
   # Hooks padrão para manutenção de arquivos
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
+        args: ['--maxkb=500']
+        exclude: ^data/instances/synthetic/
       - id: check-merge-conflict
       - id: detect-private-key
 
   # Black (formatação)
   - repo: https://github.com/psf/black
-    rev: 24.4.2
+    rev: 25.1.0
     hooks:
       - id: black
 
   # Ruff (lint + format)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+    rev: v0.13.1
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]  # Corrige automaticamente e falha se houver correções
