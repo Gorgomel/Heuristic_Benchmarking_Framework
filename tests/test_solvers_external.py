@@ -1,6 +1,6 @@
-# tests/test_solvers_external.py
 from __future__ import annotations
 
+# --- Stdlib
 import json
 import math
 import os
@@ -10,12 +10,25 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+# --- Third-party
 import numpy as np
 import pytest
 
+# --- Projeto
 from hpc_framework.solvers import kahip as kahip_mod
 from hpc_framework.solvers import metis as metis_mod
 from hpc_framework.solvers.common import read_partition_labels, write_metis_graph
+
+try:
+    _HAVE_KAHIP = kahip_mod.ensure_tool("kaffpa")
+except Exception:
+    _HAVE_KAHIP = False
+
+kahip_only = pytest.mark.skipif(
+    not _HAVE_KAHIP,
+    reason="kaffpa não encontrado no PATH; testes de KaHIP são opcionais na CI mínima.",
+)
+
 
 # =========================
 # Utilitários de teste
@@ -281,6 +294,7 @@ def test_kahip_missing_executable(monkeypatch, tmp_path: Path):
         )
 
 
+@kahip_only
 def test_kahip_timeout(monkeypatch, tmp_path: Path):
     import subprocess
 
