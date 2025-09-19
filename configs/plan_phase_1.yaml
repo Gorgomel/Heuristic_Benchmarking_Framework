@@ -1,59 +1,70 @@
-# configs/plan_phase_1.yaml
-# Plano Experimental Completo para a Fase 1: Caracterização de Heurísticas.
-# Este arquivo define todas as combinações de parâmetros a serem executadas
-# pelo orquestrador do pipeline (scripts/pipeline.py).
+---
+schema: "forja-exp-v1"
+experiment_id: "tcc-phase1"
+description: "Greedy vs METIS (KaHIP opcional) em instâncias sintéticas"
 
-parameters:
-  # Lista de nomes de arquivos de instância a serem testados.
-  # Estes arquivos devem ser gerados previamente e existir em 'data/instances/'.
-  instances:
-    # --- Instâncias Pequenas (Small) ---
-    - "s_d-low_cv-low_01.json"
-    - "s_d-mid_cv-mid_02.json"
-    - "s_d-high_cv-high_03.json"
-    - "s_d-low_cv-high_04.json"  # Testa alta variância em grafos esparsos
-    - "s_d-high_cv-low_05.json"  # Testa baixa variância em grafos densos
+rng:
+  seeds: [42]              # TCC: 1 semente fixa; amplia depois
 
-    # --- Instâncias Médias (Medium) ---
-    - "m_d-low_cv-low_01.json"
-    - "m_d-mid_cv-mid_02.json"
-    - "m_d-high_cv-high_03.json"
-    - "m_d-low_cv-high_04.json"
-    - "m_d-high_cv-low_05.json"
+env:
+  threads:
+    omp: 1
+    blas: 1
+  require_bins: ["gpmetis"]      # garante metis no runner
+  allow_missing_bins: ["kaffpa"] # KaHIP; se faltar, pula
 
-    # --- Instâncias Grandes (Large) ---
-    - "l_d-low_cv-low_01.json"
-    - "l_d-mid_cv-mid_02.json"
-    - "l_d-high_cv-high_03.json"
-    - "l_d-low_cv-high_04.json"
-    - "l_d-high_cv-low_05.json"
+instances:
+  base_dir: "data/instances/synthetic"
+  include:
+    - "n2000_p50.json.gz"
+    - "modnull_n3000_p50.json.gz"
+    - "modnull_n3500_p40.json.gz"
+    - "mix_betas_n3000_p35_cv045.json.gz"
+    - "n4000_cv_high.json.gz"
+    - "n5000_cv_low.json.gz"
+    - "wilson_tree_n10000.json.gz"
+    - "n2000_dense_fast.json.gz"
+  manifest_out: "data/results_raw/manifest_index.csv"
+  fields: ["filename", "n", "m", "density", "cv_degree"]
 
-    # --- Instância Real ---
-    # - "RoadNet-CA_subgraph.json" #
+solvers:
+  greedy:
+    enabled: true
+    params:
+      delta_v: 0.1
+    budget:
+      type: "time"      # "time" | "nfe"
+      seconds: 5
 
-  # Lista de heurísticas a serem executadas.
-  # Os nomes devem corresponder aos identificadores no 'heuristics/cli.py'.
-  heuristics:
-    - "greedy"
-    - "first_improvement"
-    - "best_improvement"
-    - "grasp"
-    - "sa"      # Simulated Annealing
-    - "ils"     # Iterated Local Search
-    - "ga"      # Genetic Algorithm
+  metis:
+    enabled: true
+    k: 8
+    budget:
+      type: "time"
+      seconds: 5
+    flags: []
 
-  # Orçamentos de avaliações da função-objetivo a serem testados para cada heurística.
-  budgets:
-    - 10000
-    - 50000
-    - 100000
-    - 200000
+  kahip:
+    enabled: true                # roda local; no CI será pulado se ausente
+    skip_if_missing: true
+    k: 8
+    imbalance: 0.03
+    preset: "fast"
+    budget:
+      type: "time"
+      seconds: 5
 
-  # Sementes aleatórias para garantir a robustez estatística.
-  # Cada combinação (instância, heurística, budget) será repetida com cada seed.
-  seeds:
-    - 42
-    - 101
-    - 2023
-    - 777
-    - 1337
+protocol:
+  repeats: 1
+  randomize_instance_order: false
+  write_partition_files: true
+
+output:
+  raw_dir: "data/results_raw"
+  tables_dir: "data/results_parquet"
+  log_level: "INFO"
+  capture:
+    git_sha: true
+    hostname: true
+    started_at: true
+    finished_at: true

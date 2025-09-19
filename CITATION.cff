@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use FORJA (hpc-framework) in your research, please cite this software."
+title: "FORJA (hpc-framework): A Reproducible Heuristic Benchmarking Framework"
+version: "0.8.0"
+date-released: "2025-09-18"
+authors:
+  - given-names: "Leonardo"
+    family-names: "Lopes"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # opcional
+repository-code: "https://github.com/Gorgomel/Heuristic_Benchmarking_Framework"
+url: "https://github.com/Gorgomel/Heuristic_Benchmarking_Framework"
+license: "MIT"
+abstract: >
+  FORJA (hpc-framework) is a reproducible benchmarking lab for graph partitioning
+  and heuristics, providing fair baselines (METIS/KaHIP), a YAML protocol for
+  experiments, and clean result artifacts for analysis.
+keywords:
+  - benchmarking
+  - graph partitioning
+  - heuristics
+  - reproducibility
+  - metis
+  - kahip

@@ -23,17 +23,30 @@ coverage.xml
 htmlcov/
 coverage/
 
+# linters / tools caches
+.ruff_cache/
+.cache/
+
 # IDE
 .vscode/
 .idea/
 
-# notebooks (opcional)
-# notebooks/*.ipynb
+# notebooks
+.ipynb_checkpoints/
 
-# data (keep instances, ignore heavy outputs)
+# MkDocs (site gerado)
+site/
+
+# data (keep instances/specs/docs; ignore artefatos pesados)
 data/results_raw/
 data/results_parquet/
-!data/instances/
+data/tmp/
+data/cache/
+!data/instances/**
+!specs/**
+!docs/**
+
+!data/results_raw/README.md
 
 # logs
 *.log
@@ -54,3 +67,27 @@ Thumbs.db
 # tox / pep582
 .tox/
 __pypackages__/
+
+# artefatos dos solvers
+*.graph.part.*
+*.ka.part
+
+# snapshots e arquivos grandes fora de data/results_raw
+artifacts/snapshots/*.tar.gz
+
+site/
+
+# builds
+site/
+# relatórios locais
+data/system_report.txt
+# pacotes/arquivos temporários
+MPP_context.zip
+
+KaHIP/
+
+docs/*.bak/
+docs/*_bak/
+
+# local artifacts
+artifacts/

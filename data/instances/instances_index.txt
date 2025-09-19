@@ -1,0 +1,8 @@
+mix_betas_n3000_p35_cv045.json.gz
+modnull_n3000_p50.json.gz
+modnull_n3500_p40.json.gz
+n2000_dense_fast.json.gz
+n2000_p50.json.gz
+n4000_cv_high.json.gz
+n5000_cv_low.json.gz
+wilson_tree_n10000.json.gz

@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  dev:
+    build: .
+    image: mpp-dev:py311
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      PYTHONHASHSEED: "0"
+    command: bash
+  test:
+    image: mpp-dev:py311
+    depends_on: [dev]
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -lc "pytest --cov=src --cov-report=term-missing --cov-report=xml"

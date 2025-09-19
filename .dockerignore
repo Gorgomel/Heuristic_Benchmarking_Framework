@@ -1,0 +1,11 @@
+.venv
+__pycache__/
+*.pyc
+dist/
+build/
+.git/
+.github/
+data/
+docs/site/
+.coverage
+coverage.xml

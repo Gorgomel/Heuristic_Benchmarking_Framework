@@ -1,56 +1,39 @@
-site_name: MPP — Metodologia, Pipelines e Particionamento
-site_description: Documentação técnica do projeto (gerador de instâncias, heurísticas e framework experimental)
-site_url: https://example.com  # opcional — ajuste/remoça
-repo_url: https://github.com/<org>/<repo>  # ajuste se quiser linkar o repositório
+site_name: HPC Framework Docs
+site_url: https://gorgomel.github.io/Heuristic_Benchmarking_Framework/
+repo_url: https://github.com/Gorgomel/Heuristic_Benchmarking_Framework
 theme:
   name: material
-  language: pt
-  features:
-    - navigation.sections
-    - navigation.expand
-    - content.code.copy
-    - toc.follow
+
+nav:
+  - Home: index.md
+  - Protocol: protocol/proto_v3.1.1.md
+  - API:
+    - Generator CLI: api/generator_cli.md
+    - Heuristics (Greedy): api/heuristics_greedy.md
+    - Framework CLI: api/hpc_framework_cli.md
+    - SSH Orchestrator: api/orchestrator_ssh_executor.md
+  - Reports:
+    - Instance Generator: reports/01_instance_generator.md
+    - Experimental Campaign: reports/02_experimental_campaign.md
+  - Decisions:
+    - 001 Language Choice: decisions/001_choice_heuristic_language.md
+    - 003 Methodology: decisions/003_metodologia_gerador_e_analise.md
+    - 004 Testing & CI: decisions/004_testing_and_ci.md
+
+
 plugins:
   - search
+  - autorefs
   - mkdocstrings:
       handlers:
         python:
+          paths: [src]
           options:
-            show_root_heading: true
+            docstring_style: google
+            docstring_section_style: table
+            show_source: false
             show_signature: true
             separate_signature: true
-            docstring_style: google      # ou "numpy", mas escolha 1
             merge_init_into_class: true
-            line_length: 100
-nav:
-  - Início: index.md
-  - Visão Geral:
-    - docs/00_architectural_overview.md
-    - docs/01_project_plan_and_workflow.md
-  - Decisões (ADR):
-    - docs/decisions/001_choice_heuristic_language.md
-    - docs/decisions/003_metodologia_gerador_e_analise.md
-    - docs/decisions/004_testing_and_ci.md
-  - Relatórios:
-    - docs/reports/01_instance_generator.md
-    - docs/reports/02_experimental_campaign.md
-  - Protocolo:
-    - docs/protocol/proto_v3.1.1.md
-  - Revisão de Literatura:
-    - docs/literature_review/Conexão Busca e Problema_.pdf
-    - docs/literature_review/Cálculo Eficiente de Modularidade em Grafos_.pdf
-    - docs/literature_review/Geração de Amostras Controladas_.pdf
-    - docs/literature_review/Geração de Grafos Aleatórios Conexos_.pdf
-    - docs/literature_review/Modelagem, Complexidade e NP-dificuldade_.pdf
-    - docs/literature_review/Métrica Hipervolume em Multi-Objetivo_.pdf
-    - docs/literature_review/Pesquisa bibliográfica sobre meta-heurísticas_.pdf
-    - docs/literature_review/Topologia e Paisagens de Busca_.pdf
-  - Testes:
-    - docs/testing/TESTING.md
-    - docs/testing/CI.md
-    - docs/testing/TRACEABILITY.md
-  - API:
-    - Gerador (CLI): api/generator_cli.md
-    - Heurística Greedy: api/heuristics_greedy.md
-    - Framework (CLI): api/hpc_framework_cli.md
-    - Orquestrador (SSH): api/orchestrator_ssh_executor.md
+  - minify:
+      minify_html: true

@@ -1,0 +1,70 @@
+---
+schema: "forja-exp-v1"
+experiment_id: "tcc-phase1"
+description: "Greedy vs METIS (KaHIP opcional) em instâncias sintéticas"
+
+rng:
+  seeds: [42]              # TCC: 1 semente fixa; amplia depois
+
+env:
+  threads:
+    omp: 1
+    blas: 1
+  require_bins: ["gpmetis"]      # garante metis no runner
+  allow_missing_bins: ["kaffpa"] # KaHIP; se faltar, pula
+
+instances:
+  base_dir: "data/instances/synthetic"
+  include:
+    - "n2000_p50.json.gz"
+    - "modnull_n3000_p50.json.gz"
+    - "modnull_n3500_p40.json.gz"
+    - "mix_betas_n3000_p35_cv045.json.gz"
+    - "n4000_cv_high.json.gz"
+    - "n5000_cv_low.json.gz"
+    - "wilson_tree_n10000.json.gz"
+    - "n2000_dense_fast.json.gz"
+  manifest_out: "data/results_raw/manifest_index.csv"
+  fields: ["filename", "n", "m", "density", "cv_degree"]
+
+solvers:
+  greedy:
+    enabled: true
+    params:
+      delta_v: 0.1
+    budget:
+      type: "time"      # "time" | "nfe"
+      seconds: 5
+
+  metis:
+    enabled: true
+    k: 8
+    budget:
+      type: "time"
+      seconds: 5
+    flags: []
+
+  kahip:
+    enabled: true                # roda local; no CI será pulado se ausente
+    skip_if_missing: true
+    k: 8
+    imbalance: 0.03
+    preset: "fast"
+    budget:
+      type: "time"
+      seconds: 5
+
+protocol:
+  repeats: 1
+  randomize_instance_order: false
+  write_partition_files: true
+
+output:
+  raw_dir: "data/results_raw"
+  tables_dir: "data/results_parquet"
+  log_level: "INFO"
+  capture:
+    git_sha: true
+    hostname: true
+    started_at: true
+    finished_at: true

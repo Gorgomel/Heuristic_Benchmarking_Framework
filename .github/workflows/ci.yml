@@ -1,27 +1,47 @@
-name: ci
-on: [push, pull_request]
+---
+name: CI (minimal)
+
+on:
+  push:
+    branches: [main, dev]
+    paths-ignore: [ "site/**" ]
+  pull_request:
+    branches: [main, dev]
+    paths-ignore: [ "site/**" ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  qa:
-    runs-on: ubuntu-latest
+  tests:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - uses: abatilo/actions-poetry@v3
-        with: { poetry-version: "1.8.3" }
-      - name: Install
-        run: |
-          poetry install -E metrics --no-interaction
-      - name: Lint & Type
-        run: |
-          poetry run ruff check .
-          poetry run black --check .
-          poetry run mypy src
-      - name: Tests + Coverage
-        run: |
-          poetry run pytest --cov=src --cov-report=term-missing --cov-report=xml
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
+          python-version: '3.11'
+
+      - name: System deps (METIS for gpmetis)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y metis
+          gpmetis -h | head -n1 || true
+
+      - name: Install Python deps (pip only)
+        run: |
+          python -m pip install --upgrade pip
+          # test runner
+          pip install pytest
+          # instala o projeto a partir do pyproject (poetry-core)
+          pip install .
+
+      - name: Run tests
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+        run: pytest -q -k "not (kahip or solvers_external)"

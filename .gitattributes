@@ -1,2 +1,2 @@
-data/instances/**/*.json.gz filter=lfs diff=lfs merge=lfs -text
-out_*.json filter=lfs diff=lfs merge=lfs -text
+* text=auto eol=lf
+*.md text eol=lf
