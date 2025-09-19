@@ -88,3 +88,6 @@ KaHIP/
 
 docs/*.bak/
 docs/*_bak/
+
+# local artifacts
+artifacts/
